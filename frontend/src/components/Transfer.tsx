@@ -1,26 +1,35 @@
 import React from "react";
+import { ethers } from "ethers";
 
-export function Transfer({ transferTokens, tokenSymbol }) {
+export interface Props {
+  transferTokens(to: string, amount: ethers.BigNumberish): void;
+  tokenSymbol: string;
+}
+
+export const Transfer: React.FC<Props> = (props) => {
   return (
     <div>
       <h4>Transfer</h4>
       <form
-        onSubmit={(event) => {
+        onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
           // This function just calls the transferTokens callback with the
           // form's data.
           event.preventDefault();
 
-          const formData = new FormData(event.target);
-          const to = formData.get("to");
-          const amount = formData.get("amount");
+          const target = event.target as typeof event.target & {
+            to: {value: string};
+            amount: {value: ethers.BigNumberish};
+          }
+          const to = target.to.value;
+          const amount = target.amount.value;
 
           if (to && amount) {
-            transferTokens(to, amount);
+            props.transferTokens(to, amount);
           }
         }}
       >
         <div className="form-group">
-          <label>Amount of {tokenSymbol}</label>
+          <label>Amount of {props.tokenSymbol}</label>
           <input
             className="form-control"
             type="number"

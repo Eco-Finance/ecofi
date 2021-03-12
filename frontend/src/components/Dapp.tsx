@@ -31,6 +31,32 @@ const HARDHAT_NETWORK_ID = '1337';
 // This is an error code that indicates that the user canceled a transaction
 const ERROR_CODE_TX_REJECTED_BY_USER = 4001;
 
+// Declare a property `ethereum` on the window global variable. This is
+// mandatory since the user's wallet will create it for us.
+// https://stackoverflow.com/questions/56457935/typescript-error-property-x-does-not-exist-on-type-window
+declare global {
+    interface Window {
+        ethereum: any;
+    }
+}
+
+interface Props {}
+
+interface State {
+    sproutTokenData: { name: string, symbol: string } | undefined;
+    ecoTokenData: { name: string, symbol: string } | undefined;
+    // The user's address and balance
+    selectedAddress: string | undefined;
+    sproutBalance: ethers.BigNumber | undefined;
+    stakeBalance: ethers.BigNumber | undefined;
+    fullBalance: ethers.BigNumber | undefined;
+    ecoBalance: ethers.BigNumber | undefined;
+    // The ID about transactions being sent, and any possible error with them
+    txBeingSent: string | undefined;
+    transactionError: any | undefined;
+    networkError: any | undefined;
+}
+
 // This component is in charge of doing these things:
 //   1. It connects to the user's wallet
 //   2. Initializes ethers and the Token contract
@@ -41,27 +67,30 @@ const ERROR_CODE_TX_REJECTED_BY_USER = 4001;
 // Note that (3) and (4) are specific of this sample application, but they show
 // you how to keep your Dapp and contract's state in sync,  and how to send a
 // transaction.
-export class Dapp extends React.Component {
-  constructor(props) {
-    super(props);
+export class Dapp extends React.Component<Props, State> {
+  _sproutToken: any;
+  _ecoToken: any;
+  _pollDataInterval: any;
+  _provider: any;
 
-    // We store multiple things in Dapp's state.
-    // You don't need to follow this pattern, but it's an useful example.
-    this.initialState = {
-      // The info of the tokens (i.e. It's Name and symbol)
-      sproutTokenData: undefined,
-      ecoTokenData: undefined,
-      // The user's address and balance
-      selectedAddress: undefined,
-      sproutBalance: undefined,
-      stakeBalance: undefined,
-      fullBalance: undefined,
-      ecoBalance: undefined,
-      // The ID about transactions being sent, and any possible error with them
-      txBeingSent: undefined,
-      transactionError: undefined,
-      networkError: undefined,
-    };
+  initialState: State = {
+    // The info of the tokens (i.e. It's Name and symbol)
+    sproutTokenData: undefined,
+    ecoTokenData: undefined,
+    // The user's address and balance
+    selectedAddress: undefined,
+    sproutBalance: undefined,
+    stakeBalance: undefined,
+    fullBalance: undefined,
+    ecoBalance: undefined,
+    // The ID about transactions being sent, and any possible error with them
+    txBeingSent: undefined,
+    transactionError: undefined,
+    networkError: undefined,
+  };
+
+  constructor(props: Props) {
+    super(props);
 
     this.state = this.initialState;
   }
@@ -230,7 +259,7 @@ export class Dapp extends React.Component {
     this._initialize(selectedAddress);
 
     // We reinitialize it whenever the user changes their account.
-    window.ethereum.on("accountsChanged", ([newAddress]) => {
+    window.ethereum.on("accountsChanged", (newAddress: string) => {
       this._stopPollingData();
       // `accountsChanged` event can be triggered with an undefined newAddress.
       // This happens when the user removes the Dapp from the "Connected
@@ -244,13 +273,13 @@ export class Dapp extends React.Component {
     });
 
     // We reset the dapp state if the network is changed
-    window.ethereum.on("chainChanged", ([networkId]) => {
+    window.ethereum.on("chainChanged", () => {
       this._stopPollingData();
       this._resetState();
     });
   }
 
-  _initialize(userAddress) {
+  _initialize(userAddress: string) {
     // This method initializes the dapp
 
     // We first store the user's address in the component's state
@@ -330,25 +359,28 @@ export class Dapp extends React.Component {
   // This method sends an ethereum transaction to transfer tokens.
   // While this action is specific to this application, it illustrates how to
   // send a transaction.
-  async _transferTokens(token, to, amount) {
+  async _transferTokens(token: ethers.Contract, to: string, amount: ethers.BigNumberish) {
     this._sendTransaction(0, () => {
       return token.transfer(to, amount);
     });
   }
 
-  async _stakeDeposit(amount) {
+  async _stakeDeposit(amount: ethers.BigNumberish) {
     this._sendTransaction(amount, () => {
       return this._sproutToken.stakeDeposit(amount);
     });
   }
 
-  async _stakeWithdraw(amount) {
+  async _stakeWithdraw(amount: ethers.BigNumberish) {
     this._sendTransaction(0, () => {
       return this._sproutToken.stakeWithdraw(amount);
     });
   }
 
-  async _sendTransaction(approvalAmount, transaction_function) {
+  async _sendTransaction(
+    approvalAmount: ethers.BigNumberish,
+    transaction_function: () => Promise<ethers.ContractTransaction>,
+  ) {
     // Sending a transaction is a complex operation:
     //   - The user can reject it
     //   - It can fail before reaching the ethereum network (i.e. if the user
@@ -430,7 +462,7 @@ export class Dapp extends React.Component {
 
   // This is an utility method that turns an RPC error into a human readable
   // message.
-  _getRpcErrorMessage(error) {
+  _getRpcErrorMessage(error: any) {
     if (error.data) {
       return error.data.message;
     }

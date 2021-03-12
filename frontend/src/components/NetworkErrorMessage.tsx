@@ -1,15 +1,20 @@
 import React from "react";
 
-export function TransactionErrorMessage({ message, dismiss }) {
+export interface Props {
+  message: string;
+  dismiss(): void;
+}
+
+export const NetworkErrorMessage: React.FC<Props> = (props) => {
   return (
     <div className="alert alert-danger" role="alert">
-      Error sending transaction: {message.substring(0, 100)}
+      {props.message}
       <button
         type="button"
         className="close"
         data-dismiss="alert"
         aria-label="Close"
-        onClick={dismiss}
+        onClick={props.dismiss}
       >
         <span aria-hidden="true">&times;</span>
       </button>
