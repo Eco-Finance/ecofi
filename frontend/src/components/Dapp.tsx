@@ -1,7 +1,7 @@
 import React from "react";
 
 // We'll use ethers to interact with the Ethereum network and our contract
-import { ethers } from "ethers";
+import { BigNumber, BigNumberish, ethers } from "ethers";
 
 // We import the contract's artifacts and address here, as we are going to be
 // using them with ethers
@@ -43,14 +43,14 @@ declare global {
 interface Props {}
 
 interface State {
-    sproutTokenData: { name: string, symbol: string } | undefined;
-    ecoTokenData: { name: string, symbol: string } | undefined;
+    sproutTokenData: { name: string, symbol: string, decimals: BigNumber };
+    ecoTokenData: { name: string, symbol: string, decimals: BigNumber };
     // The user's address and balance
     selectedAddress: string | undefined;
-    sproutBalance: ethers.BigNumber | undefined;
-    stakeBalance: ethers.BigNumber | undefined;
-    fullBalance: ethers.BigNumber | undefined;
-    ecoBalance: ethers.BigNumber | undefined;
+    sproutBalance: BigNumber | undefined;
+    stakeBalance: BigNumber | undefined;
+    fullBalance: BigNumber | undefined;
+    ecoBalance: BigNumber | undefined;
     // The ID about transactions being sent, and any possible error with them
     txBeingSent: string | undefined;
     transactionError: any | undefined;
@@ -74,9 +74,9 @@ export class Dapp extends React.Component<Props, State> {
   _provider: any;
 
   initialState: State = {
-    // The info of the tokens (i.e. It's Name and symbol)
-    sproutTokenData: undefined,
-    ecoTokenData: undefined,
+    // Tokens information use placeholders until the contract confirms them.
+    sproutTokenData: {name: 'Sprout Token', symbol: 'SPRT', decimals: BigNumber.from(18)},
+    ecoTokenData: {name: 'EcoFi Token', symbol: 'ECO', decimals: BigNumber.from(18)},
     // The user's address and balance
     selectedAddress: undefined,
     sproutBalance: undefined,
@@ -143,19 +143,19 @@ export class Dapp extends React.Component<Props, State> {
             <p>
               Welcome <b>{this.state.selectedAddress}</b>, you have{" "}
               <b>
-                {this.state.sproutBalance.toString()} {this.state.sproutTokenData.symbol}
+                {this.state.sproutBalance.div(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)).toString()} {this.state.sproutTokenData.symbol}
               </b>
               , your stake balance is worth{" "}
               <b>
-                {this.state.stakeBalance.toString()} {this.state.sproutTokenData.symbol}
+                {this.state.stakeBalance.div(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)).toString()} {this.state.sproutTokenData.symbol}
               </b>
               , and your full balance is{" "}
               <b>
-                {this.state.fullBalance.toString()} {this.state.sproutTokenData.symbol}
+                {this.state.fullBalance.div(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)).toString()} {this.state.sproutTokenData.symbol}
               </b>
               . You have{" "}
               <b>
-                {this.state.ecoBalance.toString()} {this.state.ecoTokenData.symbol}
+                {this.state.ecoBalance.div(BigNumber.from(10).pow(this.state.ecoTokenData.decimals)).toString()} {this.state.ecoTokenData.symbol}
               </b>
               {" "} you can stake.
             </p>
@@ -339,12 +339,14 @@ export class Dapp extends React.Component<Props, State> {
   async _getTokenData() {
     const sproutName = await this._sproutToken.name();
     const sproutSymbol = await this._sproutToken.symbol();
+    const sproutDecimals = await this._sproutToken.decimals();
     const ecoName = await this._ecoToken.name();
     const ecoSymbol = await this._ecoToken.symbol();
+    const ecoDecimals = await this._ecoToken.decimals();
 
     this.setState({
-      sproutTokenData: { name: sproutName, symbol: sproutSymbol },
-      ecoTokenData: { name: ecoName, symbol: ecoSymbol }
+      sproutTokenData: { name: sproutName, symbol: sproutSymbol, decimals: sproutDecimals },
+      ecoTokenData: { name: ecoName, symbol: ecoSymbol, decimals: ecoDecimals }
     });
   }
 
@@ -353,32 +355,34 @@ export class Dapp extends React.Component<Props, State> {
     const stakeBalance = await this._sproutToken.ecoBalanceOf(this.state.selectedAddress);
     const fullBalance = await this._sproutToken.fullBalanceOf(this.state.selectedAddress);
     const ecoBalance = await this._ecoToken.balanceOf(this.state.selectedAddress);
+
     this.setState({ sproutBalance, stakeBalance, fullBalance, ecoBalance });
   }
 
   // This method sends an ethereum transaction to transfer tokens.
   // While this action is specific to this application, it illustrates how to
   // send a transaction.
-  async _transferTokens(token: ethers.Contract, to: string, amount: ethers.BigNumberish) {
+  async _transferTokens(token: ethers.Contract, to: string, amount: BigNumberish) {
     this._sendTransaction(0, () => {
-      return token.transfer(to, amount);
+      console.log(amount, BigNumber.from(amount).mul(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)));
+      return token.transfer(to, BigNumber.from(amount).mul(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)));
     });
   }
 
-  async _stakeDeposit(amount: ethers.BigNumberish) {
+  async _stakeDeposit(amount: BigNumberish) {
     this._sendTransaction(amount, () => {
-      return this._sproutToken.stakeDeposit(amount);
+      return this._sproutToken.stakeDeposit(BigNumber.from(amount).mul(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)));
     });
   }
 
-  async _stakeWithdraw(amount: ethers.BigNumberish) {
+  async _stakeWithdraw(amount: BigNumberish) {
     this._sendTransaction(0, () => {
-      return this._sproutToken.stakeWithdraw(amount);
+      return this._sproutToken.stakeWithdraw(BigNumber.from(amount).mul(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)));
     });
   }
 
   async _sendTransaction(
-    approvalAmount: ethers.BigNumberish,
+    approvalAmount: BigNumberish,
     transaction_function: () => Promise<ethers.ContractTransaction>,
   ) {
     // Sending a transaction is a complex operation:
@@ -404,7 +408,7 @@ export class Dapp extends React.Component<Props, State> {
         const approve = await this._ecoToken
           .approve(
             this._sproutToken.address,
-            approvalAmount,
+            BigNumber.from(approvalAmount).mul(BigNumber.from(10).pow(this.state.ecoTokenData.decimals)),
           );
 
         if (approve.status === 0) {
