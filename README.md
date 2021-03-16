@@ -2,15 +2,19 @@
 
 *WIP*
 
-The Sprout token contract allows anyone to mint SPRT by depositing/staking ECO (for at least a minimum amount of time).
+The Sprout token contract allows anyone to mint SPRT by depositing/staking ECO
+(for at least a minimum amount of time).
 
 The generation reward is as follows:
 
-- Flat 200% annual 
-- Linearly increasing annual generation bonus reaching 100% after 20 years 
+- Flat 200% annual
+- Linearly increasing annual generation bonus reaching 100% after 20 years
 - Minimum 90 day lockup
-- Note: lockup times (& bonuses) reset on any deposit (partial withdrawal is allowed without penalizing generation bonus of remaining amount)
-- Sprout Generation distribution: 90% user, 5% EcoFi, 5% user reserve balance (user can get this once account is full withdrawn/unstaked;  this is currently called reservePool but should probably be renamed)
+- Note: lockup times (& bonuses) reset on any deposit (partial withdrawal is
+  allowed without penalizing generation bonus of remaining amount)
+- Sprout Generation distribution: 90% user, 5% EcoFi, 5% user reserve balance
+  (user can get this once account is full withdrawn/unstaked; this is
+  currently called reservePool but should probably be renamed)
 
 ## Install dependencies
 
@@ -90,7 +94,7 @@ yarn hardhat --network localhost increase_time
 #### `faucet`
 
 This task takes an address as parameter, this address will receive 1 ETH
-and 1,000E18 ECO tokens. Call with:
+and 1,000 ECO tokens. Call with:
 
 ```sh
 yarn hardhat --network localhost faucet <receiver>
