@@ -23,6 +23,8 @@ import { StakeWithdraw } from "./StakeWithdraw";
 import { TransactionErrorMessage } from "./TransactionErrorMessage";
 import { WaitingForTransactionMessage } from "./WaitingForTransactionMessage";
 
+import { calculateTokenGeneration } from "../generation";
+
 // This is the Hardhat Network id, you might change it in the hardhat.config.js
 // Here's a list of network ids https://docs.metamask.io/guide/ethereum-provider.html#properties
 // to use when deploying to other networks.
@@ -40,122 +42,82 @@ declare global {
     }
 }
 
-interface Props {}
-
-interface State {
-    sproutTokenData: { name: string, symbol: string, decimals: BigNumber };
-    ecoTokenData: { name: string, symbol: string, decimals: BigNumber };
-    // The user's address and balance
-    selectedAddress: string | undefined;
-    sproutBalance: BigNumber | undefined;
-    stakeBalance: BigNumber | undefined;
-    fullBalance: BigNumber | undefined;
-    ecoBalance: BigNumber | undefined;
-    // The ID about transactions being sent, and any possible error with them
-    txBeingSent: string | undefined;
-    transactionError: any | undefined;
-    networkError: any | undefined;
+interface ContractData {
+  name: string;
+  symbol: string;
+  decimals: BigNumber;
 }
 
-// This component is in charge of doing these things:
-//   1. It connects to the user's wallet
-//   2. Initializes ethers and the Token contract
-//   3. Polls the user balance to keep it updated.
-//   4. Transfers tokens by sending transactions
-//   5. Renders the whole application
-//
-// Note that (3) and (4) are specific of this sample application, but they show
-// you how to keep your Dapp and contract's state in sync,  and how to send a
-// transaction.
-export class Dapp extends React.Component<Props, State> {
-  _sproutToken: any;
-  _ecoToken: any;
-  _pollDataInterval: any;
-  _provider: any;
+interface Props {
+  sproutToken: ethers.Contract;
+  ecoToken: ethers.Contract;
+  provider: ethers.providers.Web3Provider;
+  sproutTokenData: ContractData;
+  ecoTokenData: ContractData;
+  selectedAddress: string;
+}
 
-  initialState: State = {
-    // Tokens information use placeholders until the contract confirms them.
-    sproutTokenData: {name: 'Sprout Token', symbol: 'SPRT', decimals: BigNumber.from(18)},
-    ecoTokenData: {name: 'EcoFi Token', symbol: 'ECO', decimals: BigNumber.from(18)},
+interface State {
     // The user's address and balance
-    selectedAddress: undefined,
-    sproutBalance: undefined,
-    stakeBalance: undefined,
-    fullBalance: undefined,
-    ecoBalance: undefined,
+    sproutBalance: BigNumber;
+    displayedBalances: {current: BigNumber; in90days: BigNumber; in10years: BigNumber};
+    stakeBalance: BigNumber;
+    ecoBalance: BigNumber;
+    lastDeposit: Date;
+    lastMint: Date;
     // The ID about transactions being sent, and any possible error with them
-    txBeingSent: undefined,
-    transactionError: undefined,
-    networkError: undefined,
-  };
+    txBeingSent?: string;
+    transactionError?: any;
+}
+
+export class Contracts extends React.Component<Props, State> {
+  _extrapolationInterval: any;
 
   constructor(props: Props) {
     super(props);
 
-    this.state = this.initialState;
+    this.state = {
+      sproutBalance: BigNumber.from(0),
+      displayedBalances: {
+        current: BigNumber.from(0),
+        in90days: BigNumber.from(0),
+        in10years: BigNumber.from(0),
+      },
+      stakeBalance: BigNumber.from(0),
+      ecoBalance: BigNumber.from(0),
+      lastDeposit: new Date(),
+      lastMint: new Date(),
+    };
   }
 
   render() {
-    // Ethereum wallets inject the window.ethereum object. If it hasn't been
-    // injected, we instruct the user to install MetaMask.
-    if (window.ethereum === undefined) {
-      return <NoWalletDetected />;
-    }
-
-    // The next thing we need to do, is to ask the user to connect their wallet.
-    // When the wallet gets connected, we are going to save the users's address
-    // in the component's state. So, if it hasn't been saved yet, we have
-    // to show the ConnectWallet component.
-    //
-    // Note that we pass it a callback that is going to be called when the user
-    // clicks a button. This callback just calls the _connectWallet method.
-    if (!this.state.selectedAddress) {
-      return (
-        <ConnectWallet
-          connectWallet={() => this._connectWallet()}
-          networkError={this.state.networkError}
-          dismiss={() => this._dismissNetworkError()}
-        />
-      );
-    }
-
-    // If the token data or the user's balance hasn't loaded yet, we show
-    // a loading component.
-    if (
-      !this.state.sproutTokenData
-      || !this.state.ecoTokenData
-      || !this.state.sproutBalance
-      || !this.state.stakeBalance
-      || !this.state.fullBalance
-      || !this.state.ecoBalance
-    ) {
-      return <Loading />;
-    }
-
-    // If everything is loaded, we render the application.
     return (
       <div className="container p-4">
         <div className="row">
           <div className="col-12">
             <h1>
-              {this.state.sproutTokenData.name} ({this.state.sproutTokenData.symbol})
+              {this.props.sproutTokenData.name} ({this.props.sproutTokenData.symbol})
             </h1>
             <p>
-              Welcome <b>{this.state.selectedAddress}</b>, you have{" "}
+              Welcome <b>{this.props.selectedAddress}</b>, you staked{" "}
               <b>
-                {this.state.sproutBalance.div(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)).toString()} {this.state.sproutTokenData.symbol}
+                {this.state.stakeBalance.div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)).toString()} {this.props.ecoTokenData.symbol}
               </b>
-              , your stake balance is worth{" "}
+              {" "}which are now worth{" "}
               <b>
-                {this.state.stakeBalance.div(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)).toString()} {this.state.sproutTokenData.symbol}
+                {this.state.displayedBalances.current.div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)).toString()} {this.props.sproutTokenData.symbol}
               </b>
-              , and your full balance is{" "}
+              , will be worth{" "}
               <b>
-                {this.state.fullBalance.div(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)).toString()} {this.state.sproutTokenData.symbol}
+                {this.state.displayedBalances.in90days.div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)).toString()} {this.props.sproutTokenData.symbol}
               </b>
-              . You have{" "}
+              {" "}in 90 days and{" "}
               <b>
-                {this.state.ecoBalance.div(BigNumber.from(10).pow(this.state.ecoTokenData.decimals)).toString()} {this.state.ecoTokenData.symbol}
+                {this.state.displayedBalances.in10years.div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)).toString()} {this.props.sproutTokenData.symbol}
+              </b>
+              {" "}in 10 years. You have{" "}
+              <b>
+                {this.state.ecoBalance.div(BigNumber.from(10).pow(this.props.ecoTokenData.decimals)).toString()} {this.props.ecoTokenData.symbol}
               </b>
               {" "} you can stake.
             </p>
@@ -194,7 +156,7 @@ export class Dapp extends React.Component<Props, State> {
                 stakeDeposit={(amount) =>
                   this._stakeDeposit(amount)
                 }
-                tokenSymbol={this.state.ecoTokenData.symbol}
+                tokenSymbol={this.props.ecoTokenData.symbol}
               />
           </div>
         </div>
@@ -205,7 +167,7 @@ export class Dapp extends React.Component<Props, State> {
                 stakeWithdraw={(amount) =>
                   this._stakeWithdraw(amount)
                 }
-                tokenSymbol={this.state.ecoTokenData.symbol}
+                tokenSymbol={this.props.ecoTokenData.symbol}
               />
           </div>
         </div>
@@ -214,9 +176,9 @@ export class Dapp extends React.Component<Props, State> {
           <div className="col-12">
               <Transfer
                 transferTokens={(to, amount) =>
-                  this._transferTokens(this._sproutToken, to, amount)
+                  this._transferTokens(this.props.sproutToken, to, amount)
                 }
-                tokenSymbol={this.state.sproutTokenData.symbol}
+                tokenSymbol={this.props.sproutTokenData.symbol}
               />
           </div>
         </div>
@@ -225,9 +187,9 @@ export class Dapp extends React.Component<Props, State> {
           <div className="col-12">
               <Transfer
                 transferTokens={(to, amount) =>
-                  this._transferTokens(this._ecoToken, to, amount)
+                  this._transferTokens(this.props.ecoToken, to, amount)
                 }
-                tokenSymbol={this.state.ecoTokenData.symbol}
+                tokenSymbol={this.props.ecoTokenData.symbol}
               />
           </div>
         </div>
@@ -235,128 +197,91 @@ export class Dapp extends React.Component<Props, State> {
     );
   }
 
-  componentWillUnmount() {
-    // We poll the user's balance, so we have to stop doing that when Dapp
-    // gets unmounted
-    this._stopPollingData();
+  componentDidMount() {
+    this._updateBalance().then(() => {this._startExtrapolatingBalance()});
   }
 
-  async _connectWallet() {
-    // This method is run when the user clicks the Connect. It connects the
-    // dapp to the user's wallet, and initializes it.
+  _startExtrapolatingBalance() {
+    this._extrapolationInterval = setInterval(() => this._extrapolateBalance(), 1000);
+    this._extrapolateBalance();
+  }
 
-    // To connect to the user's wallet, we have to run this method.
-    // It returns a promise that will resolve to the user's address.
-    const [selectedAddress] = await window.ethereum.enable();
+  componentWillUnmount() {
+    this._stopExtrapolating();
+  }
 
-    // Once we have the address, we can initialize the application.
+  _stopExtrapolating() {
+    clearInterval(this._extrapolationInterval);
+    this._extrapolationInterval = undefined;
+  }
 
-    // First we check the network
-    if (!this._checkNetwork()) {
-      return;
+  _extrapolateBalance() {
+    // In milliseconds.
+    const _90DAYS = 91 * 24 * 3600 * 1000;
+    const _10YEARS = 10 * 365.25 * 24 * 3600 * 1000;
+
+    let displayedBalances = {
+      current: this.state.sproutBalance,
+      in90days: this.state.sproutBalance,
+      in10years: this.state.sproutBalance,
+    };
+
+    if (this.state.stakeBalance.gt(0)) {
+      const current = calculateTokenGeneration(
+        this.state.stakeBalance,
+        this.state.lastDeposit,
+        this.state.lastMint,
+      );
+
+      const in90days = calculateTokenGeneration(
+        this.state.stakeBalance,
+        this.state.lastDeposit,
+        this.state.lastMint,
+        _90DAYS,
+      );
+
+      const in10years = calculateTokenGeneration(
+        this.state.stakeBalance,
+        this.state.lastDeposit,
+        this.state.lastMint,
+        _10YEARS,
+      );
+
+      displayedBalances.current = displayedBalances.current.add(current);
+      displayedBalances.in90days = displayedBalances.in90days.add(in90days);
+      displayedBalances.in10years = displayedBalances.in10years.add(in10years);
     }
 
-    this._initialize(selectedAddress);
-
-    // We reinitialize it whenever the user changes their account.
-    window.ethereum.on("accountsChanged", (newAddress: string) => {
-      this._stopPollingData();
-      // `accountsChanged` event can be triggered with an undefined newAddress.
-      // This happens when the user removes the Dapp from the "Connected
-      // list of sites allowed access to your addresses" (Metamask > Settings > Connections)
-      // To avoid errors, we reset the dapp state
-      if (newAddress === undefined) {
-        return this._resetState();
-      }
-
-      this._initialize(newAddress);
-    });
-
-    // We reset the dapp state if the network is changed
-    window.ethereum.on("chainChanged", () => {
-      this._stopPollingData();
-      this._resetState();
-    });
-  }
-
-  _initialize(userAddress: string) {
-    // This method initializes the dapp
-
-    // We first store the user's address in the component's state
-    this.setState({
-      selectedAddress: userAddress,
-    });
-
-    // Then, we initialize ethers, fetch the token's data, and start polling
-    // for the user's balance.
-
-    // Fetching the token data and the user's balance are specific to this
-    // sample project, but you can reuse the same initialization pattern.
-    this._intializeEthers();
-    this._getTokenData();
-    this._startPollingData();
-  }
-
-  async _intializeEthers() {
-    // We first initialize ethers by creating a provider using window.ethereum
-    this._provider = new ethers.providers.Web3Provider(window.ethereum);
-
-    // When, we initialize the contract using that provider and the token's
-    // artifact. You can do this same thing with your contracts.
-    this._sproutToken = new ethers.Contract(
-      SproutContractAddress.SproutToken,
-      SproutTokenArtifact.abi,
-      this._provider.getSigner(0)
-    );
-    this._ecoToken = new ethers.Contract(
-      EcoContractAddress.EcoToken,
-      EcoTokenArtifact.abi,
-      this._provider.getSigner(0)
-    );
-  }
-
-  // The next to methods are needed to start and stop polling data. While
-  // the data being polled here is specific to this example, you can use this
-  // pattern to read any data from your contracts.
-  //
-  // Note that if you don't need it to update in near real time, you probably
-  // don't need to poll it. If that's the case, you can just fetch it when you
-  // initialize the app, as we do with the token data.
-  _startPollingData() {
-    this._pollDataInterval = setInterval(() => this._updateBalance(), 1000);
-
-    // We run it once immediately so we don't have to wait for it
-    this._updateBalance();
-  }
-
-  _stopPollingData() {
-    clearInterval(this._pollDataInterval);
-    this._pollDataInterval = undefined;
-  }
-
-  // The next two methods just read from the contract and store the results
-  // in the component state.
-  async _getTokenData() {
-    const sproutName = await this._sproutToken.name();
-    const sproutSymbol = await this._sproutToken.symbol();
-    const sproutDecimals = await this._sproutToken.decimals();
-    const ecoName = await this._ecoToken.name();
-    const ecoSymbol = await this._ecoToken.symbol();
-    const ecoDecimals = await this._ecoToken.decimals();
-
-    this.setState({
-      sproutTokenData: { name: sproutName, symbol: sproutSymbol, decimals: sproutDecimals },
-      ecoTokenData: { name: ecoName, symbol: ecoSymbol, decimals: ecoDecimals }
-    });
+    this.setState({displayedBalances: displayedBalances});
   }
 
   async _updateBalance() {
-    const sproutBalance = await this._sproutToken.balanceOf(this.state.selectedAddress);
-    const stakeBalance = await this._sproutToken.ecoBalanceOf(this.state.selectedAddress);
-    const fullBalance = await this._sproutToken.fullBalanceOf(this.state.selectedAddress);
-    const ecoBalance = await this._ecoToken.balanceOf(this.state.selectedAddress);
+    const sproutBalance = await this.props.sproutToken.rawBalanceOf(this.props.selectedAddress);
+    const stakeBalance = await this.props.sproutToken.ecoBalanceOf(this.props.selectedAddress);
+    const ecoBalance = await this.props.ecoToken.balanceOf(this.props.selectedAddress);
+    const [lastDepositTimestamp, lastMintTimestamp] =
+      await this.props.sproutToken.lastDepositAndMintTimestamps(
+        this.props.selectedAddress,
+      );
 
-    this.setState({ sproutBalance, stakeBalance, fullBalance, ecoBalance });
+    const displayedBalances = {
+      current: sproutBalance,
+      in90days: sproutBalance,
+      in10years: sproutBalance,
+    }
+
+    // Received timestamps are in seconds, they must be converted to milliseconds.
+    const lastDeposit = new Date(lastDepositTimestamp.mul(1000).toNumber());
+    const lastMint = new Date(lastMintTimestamp.mul(1000).toNumber());
+
+    this.setState({
+      sproutBalance,
+      stakeBalance,
+      ecoBalance,
+      displayedBalances,
+      lastDeposit,
+      lastMint
+    });
   }
 
   // This method sends an ethereum transaction to transfer tokens.
@@ -364,20 +289,19 @@ export class Dapp extends React.Component<Props, State> {
   // send a transaction.
   async _transferTokens(token: ethers.Contract, to: string, amount: BigNumberish) {
     this._sendTransaction(0, () => {
-      console.log(amount, BigNumber.from(amount).mul(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)));
-      return token.transfer(to, BigNumber.from(amount).mul(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)));
+      return token.transfer(to, BigNumber.from(amount).mul(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)));
     });
   }
 
   async _stakeDeposit(amount: BigNumberish) {
     this._sendTransaction(amount, () => {
-      return this._sproutToken.stakeDeposit(BigNumber.from(amount).mul(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)));
+      return this.props.sproutToken.stakeDeposit(BigNumber.from(amount).mul(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)));
     });
   }
 
   async _stakeWithdraw(amount: BigNumberish) {
     this._sendTransaction(0, () => {
-      return this._sproutToken.stakeWithdraw(BigNumber.from(amount).mul(BigNumber.from(10).pow(this.state.sproutTokenData.decimals)));
+      return this.props.sproutToken.stakeWithdraw(BigNumber.from(amount).mul(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)));
     });
   }
 
@@ -405,10 +329,10 @@ export class Dapp extends React.Component<Props, State> {
       this._dismissTransactionError();
 
       if (approvalAmount > 0) {
-        const approve = await this._ecoToken
+        const approve = await this.props.ecoToken
           .approve(
-            this._sproutToken.address,
-            BigNumber.from(approvalAmount).mul(BigNumber.from(10).pow(this.state.ecoTokenData.decimals)),
+            this.props.sproutToken.address,
+            BigNumber.from(approvalAmount).mul(BigNumber.from(10).pow(this.props.ecoTokenData.decimals)),
           );
 
         if (approve.status === 0) {
@@ -423,7 +347,6 @@ export class Dapp extends React.Component<Props, State> {
 
       // We use .wait() to wait for the transaction to be mined. This method
       // returns the transaction's receipt.
-      console.log(tx)
       const receipt = await tx.wait();
 
       // The receipt, contains a status flag, which is 0 to indicate an error.
@@ -454,16 +377,6 @@ export class Dapp extends React.Component<Props, State> {
     }
   }
 
-  // This method just clears part of the state.
-  _dismissTransactionError() {
-    this.setState({ transactionError: undefined });
-  }
-
-  // This method just clears part of the state.
-  _dismissNetworkError() {
-    this.setState({ networkError: undefined });
-  }
-
   // This is an utility method that turns an RPC error into a human readable
   // message.
   _getRpcErrorMessage(error: any) {
@@ -474,9 +387,193 @@ export class Dapp extends React.Component<Props, State> {
     return error.message;
   }
 
+  // This method just clears part of the state.
+  _dismissTransactionError() {
+    this.setState({ transactionError: undefined });
+  }
+}
+
+interface DappProps {}
+
+interface DappState {
+  networkError?: any;
+  sproutToken?: ethers.Contract;
+  ecoToken?: ethers.Contract;
+  provider?: ethers.providers.Web3Provider;
+  selectedAddress?: string;
+  sproutTokenData?: ContractData;
+  ecoTokenData?: ContractData;
+}
+
+// This component is in charge of doing these things:
+//   1. It connects to the user's wallet
+//   2. Initializes ethers and the Token contract
+//   3. Polls the user balance to keep it updated.
+//   4. Transfers tokens by sending transactions
+//   5. Renders the whole application
+//
+// Note that (3) and (4) are specific of this sample application, but they show
+// you how to keep your Dapp and contract's state in sync,  and how to send a
+// transaction.
+export class Dapp extends React.Component<DappProps, DappState> {
+  constructor(props: DappProps) {
+    super(props);
+
+    this.state = {
+      networkError: undefined
+    };
+  }
+
+  render() {
+    // Ethereum wallets inject the window.ethereum object. If it hasn't been
+    // injected, we instruct the user to install MetaMask.
+    if (window.ethereum === undefined) {
+      return <NoWalletDetected />;
+    }
+
+    // The next thing we need to do, is to ask the user to connect their wallet.
+    // When the wallet gets connected, we are going to save the users's address
+    // in the component's state. So, if it hasn't been saved yet, we have
+    // to show the ConnectWallet component.
+    //
+    // Note that we pass it a callback that is going to be called when the user
+    // clicks a button. This callback just calls the _connectWallet method.
+    if (!this.state.selectedAddress) {
+      return (
+        <ConnectWallet
+          connectWallet={() => this._connectWallet()}
+          networkError={this.state.networkError}
+          dismiss={() => this._dismissNetworkError()}
+        />
+      );
+    }
+
+    if (
+        !this.state.sproutToken
+        || !this.state.ecoToken
+        || !this.state.provider
+        || !this.state.selectedAddress
+        || !this.state.sproutTokenData
+        || !this.state.ecoTokenData
+    ) {
+      return <Loading />;
+    }
+
+    // If everything is loaded, we render the application.
+    return <Contracts
+      sproutToken = {this.state.sproutToken}
+      ecoToken = {this.state.ecoToken}
+      provider = {this.state.provider}
+      sproutTokenData = {this.state.sproutTokenData}
+      ecoTokenData = {this.state.ecoTokenData}
+      selectedAddress = {this.state.selectedAddress}
+    />
+  }
+
+  async _connectWallet() {
+    // This method is run when the user clicks the Connect. It connects the
+    // dapp to the user's wallet, and initializes it.
+
+    // To connect to the user's wallet, we have to run this method.
+    // It returns a promise that will resolve to the user's address.
+    const [selectedAddress] = await window.ethereum.enable();
+
+    // Once we have the address, we can initialize the application.
+
+    // First we check the network
+    if (!this._checkNetwork()) {
+      return;
+    }
+
+    this._initialize(selectedAddress);
+
+    // We reinitialize it whenever the user changes their account.
+    window.ethereum.on("accountsChanged", (newAddress: string) => {
+      // `accountsChanged` event can be triggered with an undefined newAddress.
+      // This happens when the user removes the Dapp from the "Connected
+      // list of sites allowed access to your addresses" (Metamask > Settings > Connections)
+      // To avoid errors, we reset the dapp state
+      if (newAddress === undefined) {
+        return this._resetState();
+      }
+
+      this._initialize(newAddress);
+    });
+
+    // We reset the dapp state if the network is changed
+    window.ethereum.on("chainChanged", () => {
+      this._resetState();
+    });
+  }
+
+  _initialize(userAddress: string) {
+    // This method initializes the dapp
+
+    // We first store the user's address in the component's state
+    this.setState({
+      selectedAddress: userAddress
+    });
+
+    // Then, we initialize ethers, fetch the token's data, and start polling
+    // for the user's balance.
+
+    // Fetching the token data and the user's balance are specific to this
+    // sample project, but you can reuse the same initialization pattern.
+    this._intializeEthers();
+    this._getTokenData();
+  }
+
+  async _intializeEthers() {
+    // We first initialize ethers by creating a provider using window.ethereum
+    this.setState({
+      provider: new ethers.providers.Web3Provider(window.ethereum)
+    });
+
+    // When, we initialize the contract using that provider and the token's
+    // artifact. You can do this same thing with your contracts.
+    this.setState({
+      sproutToken: new ethers.Contract(
+        SproutContractAddress.SproutToken,
+        SproutTokenArtifact.abi,
+        this.state.provider?.getSigner(0)
+      ),
+      ecoToken: new ethers.Contract(
+        EcoContractAddress.EcoToken,
+        EcoTokenArtifact.abi,
+        this.state.provider?.getSigner(0)
+      )
+    });
+  }
+
+  async _getTokenData() {
+    const sproutName = await this.state.sproutToken?.name();
+    const sproutSymbol = await this.state.sproutToken?.symbol();
+    const sproutDecimals = await this.state.sproutToken?.decimals();
+    const ecoName = await this.state.ecoToken?.name();
+    const ecoSymbol = await this.state.ecoToken?.symbol();
+    const ecoDecimals = await this.state.ecoToken?.decimals();
+
+    this.setState({
+      sproutTokenData: {name: sproutName, symbol: sproutSymbol, decimals: sproutDecimals},
+      ecoTokenData: {name: ecoName, symbol: ecoSymbol, decimals: ecoDecimals},
+    });
+  }
+
   // This method resets the state
   _resetState() {
-    this.setState(this.initialState);
+    this.setState({
+      provider: undefined,
+      selectedAddress: undefined,
+      sproutToken: undefined,
+      ecoToken: undefined,
+      sproutTokenData: undefined,
+      ecoTokenData: undefined,
+    })
+  }
+
+  // This method just clears part of the state.
+  _dismissNetworkError() {
+    this.setState({ networkError: undefined });
   }
 
   // This method checks if Metamask selected network is Localhost:8545

@@ -216,4 +216,19 @@ contract SproutToken is ERC20Burnable {
     function ecoBalanceOf(address _account) public view returns (uint256){
         return mStakeBalance[_account];
     }
+
+    // Returns the amount of tokens owned by the account without taking the current
+    // stake into account. This is required by the frontend so it doesn't count the
+    // generated amount twice.
+    function rawBalanceOf(address _account) public view returns (uint256) {
+        return super.balanceOf(_account);
+    }
+
+    function lastDepositAndMintTimestamps(address _account)
+    public
+    view
+    returns (uint256, uint256)
+    {
+        return (mLastDeposit[_account], mLastMint[_account]);
+    }
 }
