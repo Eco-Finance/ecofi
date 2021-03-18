@@ -1,0 +1,6 @@
+image: node:latest
+
+test:
+  script:
+    - yarn install
+    - yarn hardhat test
