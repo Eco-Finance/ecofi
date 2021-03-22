@@ -9,6 +9,7 @@
     "@typechain/ethers-v5": "^6.0.1",
     "@typechain/truffle-v5": "^4.0.1",
     "@typechain/web3-v1": "^2.2.0",
+    "hardhat-gas-reporter": "^1.0.4",
     "hardhat-typechain": "^0.3.5",
     "ts-generator": "^0.1.1",
     "typechain": "^4.0.2"

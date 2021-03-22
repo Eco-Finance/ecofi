@@ -1,6 +1,7 @@
 import { task } from "hardhat/config";
 import "@nomiclabs/hardhat-waffle";
 import "hardhat-typechain";
+import "hardhat-gas-reporter";
 
 require('hardhat-docgen');
 
