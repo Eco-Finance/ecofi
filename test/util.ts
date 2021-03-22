@@ -17,9 +17,7 @@ export async function currentBlockTimestamp(): Promise<number> {
   return (await block).timestamp;
 }
 
-export async function fastForwardDays(days: number) {
-  const seconds = days * SECONDS_IN_A_DAY;
-  const nextBlockTimestamp = await currentBlockTimestamp() + seconds;
+export async function fastForwardTo(nextBlockTimestamp: number) {
   await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTimestamp])
   await ethers.provider.send("evm_mine", []);
 }

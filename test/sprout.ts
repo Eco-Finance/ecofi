@@ -2,7 +2,7 @@ import { ethers } from "hardhat";
 import { Signer, BigNumber } from "ethers";
 import { expect } from "chai";
 import { EcoFiToken, EcoFiToken__factory, SproutToken, SproutToken__factory } from "../typechain";
-import { fastForwardDays, Amounts } from "./util";
+import { Amounts, currentBlockTimestamp, fastForwardTo } from "./util";
 
 describe("SproutToken", function () {
 
@@ -14,6 +14,8 @@ describe("SproutToken", function () {
   let eco_test_account: Signer;
 
   const MIN_STAKE_DURATION_SECONDS = 7776000;
+
+  // context
   let stakeTimestamp : number;
 
   before(async function() {
@@ -66,8 +68,13 @@ describe("SproutToken", function () {
     // eco_balance * (timediff [7862400] / SECONDS_PER_YEAR [31557600]) * (rate [2.0] + bonus rate [0.000000001584404390701447512 * 86400]) = 49.832294927058576608 SPRT
     const expectedReward = BigNumber.from("44849076913899358176"); // TO-DO: I calculated 44849065434352718947
 
-    // fast forward chain by 91 days
-    fastForwardDays(91);
+    // fast forward chain to stake timestamp + 91 days
+    const nextBlockTimestamp = stakeTimestamp + 7862400;
+    await fastForwardTo(nextBlockTimestamp);
+    expect(await currentBlockTimestamp()).to.equal(
+      nextBlockTimestamp,
+      "current timestamp should be 91 days after stake"
+    );
 
     expect(await sproutToken.balanceOf(await eco_test_account.getAddress())).to.equal(expectedReward);
 
@@ -80,8 +87,13 @@ describe("SproutToken", function () {
     // TO-DO: I calculated 203767967145790554415 (in swapbox i did tests replicating the math in the tests (with matching precision).  ended up being spaghetti and i didnt dare commit.  I dont think we want to do that here)
     const expectedReward = BigNumber.from("183391182339035333257"); // TO-DO: I calculated 183391170431211498973
 
-    // fast forward chain by 365.25 days (minus 91 days above)
-    fastForwardDays(365.25 - 91);
+    // fast forward chain to stake timestamp + 1 year
+    const nextBlockTimestamp = stakeTimestamp + 31557600;
+    await fastForwardTo(nextBlockTimestamp);
+    expect(await currentBlockTimestamp()).to.equal(
+      nextBlockTimestamp,
+      "current timestamp should be 1 year after stake"
+    );
 
     expect(await sproutToken.balanceOf(await eco_test_account.getAddress())).to.equal(expectedReward);
 
@@ -96,8 +108,13 @@ describe("SproutToken", function () {
 
     const expected_reward = BigNumber.from("2363295705873042886038"); // TO-DO: I calculated 2238911704312114989773
 
-    // fast forward chain by 3652.5 days (minus 365.25 days above)
-    fastForwardDays(3652.5 - 362.25);
+    // fast forward chain to stake timestamp + 10 years
+    const nextBlockTimestamp = stakeTimestamp + 315576000;
+    await fastForwardTo(nextBlockTimestamp);
+    expect(await currentBlockTimestamp()).to.equal(
+      nextBlockTimestamp,
+      "current timestamp should be 10 years after stake"
+    );
 
     await sproutToken.connect(eco_test_account).stakeWithdraw(Amounts._100_E18);
 
