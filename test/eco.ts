@@ -29,12 +29,12 @@ describe("EcoFiToken", function () {
   });
 
   it("has a total supply of 10,000,000 (*10^18)", async function () {
-    const totalSupply = parseEther("10000000");
+    const totalSupply = Amounts._10_E18.mul(10000000);
     expect(await ecoToken.totalSupply()).to.equal(totalSupply);
   });
 
   it("transfers 100 ECO to test account", async function () {
-    const amount = parseEther("100");
+    const amount = Amounts._10_E18.mul(100);
     const contract = await ecoToken.connect(eco_multisig);
     const tx = contract.transfer(await test_account.getAddress(), amount);
     //TODO: check balance

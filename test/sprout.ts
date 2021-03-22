@@ -2,14 +2,9 @@ import { ethers } from "hardhat";
 import { Signer, BigNumber } from "ethers";
 import { expect } from "chai";
 import { EcoFiToken, EcoFiToken__factory, SproutToken, SproutToken__factory } from "../typechain";
-import { fastForwardDays } from "./util";
+import { fastForwardDays, Amounts } from "./util";
 
 describe("SproutToken", function () {
-  const _10_E18 = BigNumber.from("10000000000000000000")
-  const _100_E18 = BigNumber.from("100000000000000000000")
-  const _1000_E18 = BigNumber.from("1000000000000000000000")
-  const _900_E18 = BigNumber.from("900000000000000000000")
-  const _0 = BigNumber.from("0")
 
   let accounts: Signer[];
   let ecoToken: EcoFiToken;
@@ -36,7 +31,7 @@ describe("SproutToken", function () {
     // send 1000 tokens to eco_test_account
     const transfer = await ecoToken.connect(eco_multisig).transfer(
         await eco_test_account.getAddress(),
-        _1000_E18,
+        Amounts._1000_E18,
     );
 
     // deploy SproutToken
@@ -47,28 +42,27 @@ describe("SproutToken", function () {
 
   it("deposits 100 ECO from test account", async function() {
     // approve, stake
-    const approve = await ecoToken.connect(eco_test_account).approve(await sproutToken.address, _100_E18);
-    const tx = await sproutToken.connect(eco_test_account).stakeDeposit(_100_E18);
+    const approve = await ecoToken.connect(eco_test_account).approve(await sproutToken.address, Amounts._100_E18);
+    const tx = await sproutToken.connect(eco_test_account).stakeDeposit(Amounts._100_E18);
     
     // wait for tx to be mined and store stake timestamp.
     const receipt = await tx.wait();
     stakeTimestamp = (await ethers.provider.getBlock(receipt.blockNumber)).timestamp;
 
     // check balances
-    expect(await sproutToken.ecoBalanceOf(await eco_test_account.getAddress())).to.equal(_100_E18);
-    expect(await ecoToken.balanceOf(await eco_test_account.getAddress())).to.equal(_900_E18);
-    expect(await ecoToken.balanceOf(sproutToken.address)).to.equal(_100_E18);
-    expect(await sproutToken.balanceOf(await eco_test_account.getAddress())).to.equal(_0);
+    expect(await sproutToken.ecoBalanceOf(await eco_test_account.getAddress())).to.equal(Amounts._100_E18);
+    expect(await ecoToken.balanceOf(await eco_test_account.getAddress())).to.equal(Amounts._900_E18);
+    expect(await ecoToken.balanceOf(sproutToken.address)).to.equal(Amounts._100_E18);
+    expect(await sproutToken.balanceOf(await eco_test_account.getAddress())).to.equal(Amounts._0);
   });
 
   it("fails to withdraw 10 ECO too early", async function() {
     let contract = sproutToken.connect(eco_test_account);
-    let txPromise = contract.stakeWithdraw(_10_E18);
+    let txPromise = contract.stakeWithdraw(Amounts._10_E18);
     await expect(txPromise).to.be.revertedWith("MinStakeDuration not elapsed yet");
   });
 
   it("correctly computes the SPRT Generation amount after 91 days on 100 ECO deposit", async function() {
-    // `expected_reward` is the amount of SPRT generated after 91 days.
     // eco_balance * (timediff [7862400] / SECONDS_PER_YEAR [31557600]) * (rate [2.0] + bonus rate [0.000000001584404390701447512 * 86400]) = 49.832294927058576608 SPRT
     const expectedReward = BigNumber.from("44849076913899358176"); // TO-DO: I calculated 44849065434352718947
 
@@ -105,11 +99,11 @@ describe("SproutToken", function () {
     // fast forward chain by 3652.5 days (minus 365.25 days above)
     fastForwardDays(3652.5 - 362.25);
 
-    await sproutToken.connect(eco_test_account).stakeWithdraw(_100_E18);
+    await sproutToken.connect(eco_test_account).stakeWithdraw(Amounts._100_E18);
 
-    expect(await sproutToken.ecoBalanceOf(await eco_test_account.getAddress())).to.equal(_0);
-    expect(await ecoToken.balanceOf(await eco_test_account.getAddress())).to.equal(_1000_E18);
-    expect(await ecoToken.balanceOf(sproutToken.address)).to.equal(_0);
+    expect(await sproutToken.ecoBalanceOf(await eco_test_account.getAddress())).to.equal(Amounts._0);
+    expect(await ecoToken.balanceOf(await eco_test_account.getAddress())).to.equal(Amounts._1000_E18);
+    expect(await ecoToken.balanceOf(sproutToken.address)).to.equal(Amounts._0);
     expect(await sproutToken.balanceOf(await eco_test_account.getAddress())).to.equal(expected_reward);
 
     console.log("SPRT balance:", await sproutToken.balanceOf(await eco_test_account.getAddress()));
