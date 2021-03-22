@@ -3,24 +3,25 @@ import { Signer } from "ethers";
 import { expect } from "chai";
 import { EcoFiToken, EcoFiToken__factory } from "../typechain";
 import { parseEther } from "ethers/lib/utils";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { Amounts } from "./util";
 
 describe("EcoFiToken", function () {
-  let accounts: Signer[];
   let ecoToken: EcoFiToken;
-  let deployer: any;
-  let eco_multisig: any;
-  let test_account: any;
+
+  let accounts: SignerWithAddress[];
+  let ecoMultisig: SignerWithAddress;
+  let testAccount: SignerWithAddress;
 
   before(async function () {
     // setup accounts
     accounts = await ethers.getSigners();
-    deployer = accounts[0];
-    eco_multisig = accounts[1];
-    test_account = accounts[2];
+    ecoMultisig = accounts[0];
+    testAccount = accounts[1];
 
     // deploy EcoFiToken
-    let ecoFiFactory = new EcoFiToken__factory(eco_multisig);
-    ecoToken = await ecoFiFactory.deploy(await eco_multisig.getAddress());
+    let ecoFiFactory = new EcoFiToken__factory(ecoMultisig);
+    ecoToken = await ecoFiFactory.deploy(ecoMultisig.address);
     await ecoToken.deployed();
   });
 
@@ -34,10 +35,10 @@ describe("EcoFiToken", function () {
   });
 
   it("transfers 100 ECO to test account", async function () {
-    const amount = Amounts._10_E18.mul(100);
-    const contract = await ecoToken.connect(eco_multisig);
-    const tx = contract.transfer(await test_account.getAddress(), amount);
-    //TODO: check balance
-    throw new Error("not implemented")
+    const token = ecoToken.connect(ecoMultisig);
+    await token.transfer(await testAccount.getAddress(), Amounts._100_E18);
+
+    const balance = await token.balanceOf(testAccount.address);
+    expect(balance).to.equal(Amounts._100_E18);
   });
 });
