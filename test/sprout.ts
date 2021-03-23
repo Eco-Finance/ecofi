@@ -126,8 +126,11 @@ describe("SproutToken", function () {
     console.log("SPRT balance:", await sproutToken.balanceOf(await eco_test_account.getAddress()));
   });
 
-  it("fails when trying to transfer() ECO to sprout contract", async function() {
-    // TODO implement
-    throw new Error("not implemented")
+  it("fails to transfer ECO to sprout contract", async function() {
+    const amount = Amounts._10_E18;
+    const txPromise = ecoToken.transfer(sproutToken.address, amount);
+    await expect(txPromise).to.be.revertedWith(
+      "EcoFiToken: transfer to sprout contract address (use transferFrom instead)"
+    );
   });
 });
