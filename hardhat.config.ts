@@ -18,5 +18,10 @@ export default {
     path: './docs',
     clear: true,
     runOnCompile: true,
+  },
+  networks: {
+    hardhat: {
+      chainId: 1337
+    },
   }
 };
