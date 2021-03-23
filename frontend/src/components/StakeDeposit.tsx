@@ -1,26 +1,33 @@
 import React from "react";
+import { ethers } from "ethers";
 
-export function StakeDeposit({ stakeDeposit, tokenSymbol }) {
+export interface Props {
+  stakeDeposit(amount: ethers.BigNumberish): void;
+  tokenSymbol: string;
+}
+
+export const StakeDeposit: React.FC<Props> = (props) => {
   return (
     <div>
       <h4>Stake Deposit</h4>
       <form
-        onSubmit={(event) => {
+        onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
           // This function just calls the stakeDeposit callback with the
           // form's data.
           event.preventDefault();
 
-          const formData = new FormData(event.target);
-          const amount = formData.get("amount");
+          const target = event.target as typeof event.target & {
+            amount: {value: number};
+          }
+          const amount = target.amount.value;
 
-          console.log('amount', amount)
           if (amount) {
-            stakeDeposit(amount);
+            props.stakeDeposit(amount);
           }
         }}
       >
         <div className="form-group">
-          <label>Amount of {tokenSymbol}</label>
+          <label>Amount of {props.tokenSymbol}</label>
           <input
             className="form-control"
             type="number"

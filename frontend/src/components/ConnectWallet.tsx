@@ -2,16 +2,22 @@ import React from "react";
 
 import { NetworkErrorMessage } from "./NetworkErrorMessage";
 
-export function ConnectWallet({ connectWallet, networkError, dismiss }) {
+export interface Props {
+  connectWallet(): void;
+  networkError?: string;
+  dismiss(): void;
+}
+
+export const ConnectWallet: React.FC<Props> = (props) => {
   return (
     <div className="container">
       <div className="row justify-content-md-center">
         <div className="col-12 text-center">
           {/* Metamask network should be set to Localhost:8545. */}
-          {networkError && (
-            <NetworkErrorMessage 
-              message={networkError} 
-              dismiss={dismiss} 
+          {props.networkError && (
+            <NetworkErrorMessage
+              message={props.networkError}
+              dismiss={props.dismiss}
             />
           )}
         </div>
@@ -20,7 +26,7 @@ export function ConnectWallet({ connectWallet, networkError, dismiss }) {
           <button
             className="btn btn-warning"
             type="button"
-            onClick={connectWallet}
+            onClick={props.connectWallet}
           >
             Connect Wallet
           </button>
