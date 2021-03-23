@@ -61,7 +61,7 @@ yarn start
 yarn hardhat node
 ```
 
-This node is hosted on the port `8545` with chain ID `31337`.
+This node is hosted on the port `8545` with chain ID `1337`.
 
 ### Deploy script
 
