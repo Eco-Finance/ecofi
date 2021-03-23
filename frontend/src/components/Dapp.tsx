@@ -37,9 +37,9 @@ const ERROR_CODE_TX_REJECTED_BY_USER = 4001;
 // mandatory since the user's wallet will create it for us.
 // https://stackoverflow.com/questions/56457935/typescript-error-property-x-does-not-exist-on-type-window
 declare global {
-    interface Window {
-        ethereum: any;
-    }
+  interface Window {
+    ethereum: any;
+  }
 }
 
 interface ContractData {
@@ -58,20 +58,20 @@ interface Props {
 }
 
 interface State {
-    // The user's address and balance
-    sproutBalance: BigNumber;
-    displayedBalances: {current: BigNumber; in90days: BigNumber; in10years: BigNumber};
-    stakeBalance: BigNumber;
-    ecoBalance: BigNumber;
-    lastDeposit: Date;
-    lastMint: Date;
-    // The ID about transactions being sent, and any possible error with them
-    txBeingSent?: string;
-    transactionError?: any;
+  // The user's address and balance
+  sproutBalance: BigNumber;
+  displayedBalances: {current: BigNumber; in90days: BigNumber; in10years: BigNumber};
+  stakeBalance: BigNumber;
+  ecoBalance: BigNumber;
+  lastDeposit: Date;
+  lastMint: Date;
+  // The ID about transactions being sent, and any possible error with them
+  txBeingSent?: string;
+  transactionError?: Error;
 }
 
 export class Contracts extends React.Component<Props, State> {
-  _extrapolationInterval: any;
+  _extrapolationInterval?: ReturnType<typeof setInterval>;
 
   constructor(props: Props) {
     super(props);
@@ -90,7 +90,7 @@ export class Contracts extends React.Component<Props, State> {
     };
   }
 
-  render() {
+  render(): React.ReactNode {
     return (
       <div className="container p-4">
         <div className="row">
@@ -143,7 +143,7 @@ export class Contracts extends React.Component<Props, State> {
             */}
             {this.state.transactionError && (
               <TransactionErrorMessage
-                message={this._getRpcErrorMessage(this.state.transactionError)}
+                message={this.state.transactionError.message}
                 dismiss={() => this._dismissTransactionError()}
               />
             )}
@@ -197,30 +197,32 @@ export class Contracts extends React.Component<Props, State> {
     );
   }
 
-  componentDidMount() {
+  componentDidMount(): void {
     this._updateBalance().then(() => {this._startExtrapolatingBalance()});
   }
 
-  _startExtrapolatingBalance() {
+  _startExtrapolatingBalance(): void {
     this._extrapolationInterval = setInterval(() => this._extrapolateBalance(), 1000);
     this._extrapolateBalance();
   }
 
-  componentWillUnmount() {
+  componentWillUnmount(): void {
     this._stopExtrapolating();
   }
 
-  _stopExtrapolating() {
-    clearInterval(this._extrapolationInterval);
-    this._extrapolationInterval = undefined;
+  _stopExtrapolating(): void {
+    if (this._extrapolationInterval) {
+      clearInterval(this._extrapolationInterval);
+      this._extrapolationInterval = undefined;
+    }
   }
 
-  _extrapolateBalance() {
+  _extrapolateBalance(): void {
     // In milliseconds.
     const _90DAYS = 91 * 24 * 3600 * 1000;
     const _10YEARS = 10 * 365.25 * 24 * 3600 * 1000;
 
-    let displayedBalances = {
+    const displayedBalances = {
       current: this.state.sproutBalance,
       in90days: this.state.sproutBalance,
       in10years: this.state.sproutBalance,
@@ -255,7 +257,7 @@ export class Contracts extends React.Component<Props, State> {
     this.setState({displayedBalances: displayedBalances});
   }
 
-  async _updateBalance() {
+  async _updateBalance(): Promise<void> {
     const ecoBalance = await this.props.ecoToken.balanceOf(this.props.selectedAddress);
     const [sproutBalance, stakeBalance, lastDepositTimestamp, lastMintTimestamp] =
       await this.props.sproutToken.generationExtrapolationInformation(
@@ -285,19 +287,19 @@ export class Contracts extends React.Component<Props, State> {
   // This method sends an ethereum transaction to transfer tokens.
   // While this action is specific to this application, it illustrates how to
   // send a transaction.
-  async _transferTokens(token: ethers.Contract, to: string, amount: BigNumberish) {
+  async _transferTokens(token: ethers.Contract, to: string, amount: BigNumberish): Promise<void> {
     this._sendTransaction(0, () => {
       return token.transfer(to, BigNumber.from(amount).mul(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)));
     });
   }
 
-  async _stakeDeposit(amount: BigNumberish) {
+  async _stakeDeposit(amount: BigNumberish): Promise<void> {
     this._sendTransaction(amount, () => {
       return this.props.sproutToken.stakeDeposit(BigNumber.from(amount).mul(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)));
     });
   }
 
-  async _stakeWithdraw(amount: BigNumberish) {
+  async _stakeWithdraw(amount: BigNumberish): Promise<void> {
     this._sendTransaction(0, () => {
       return this.props.sproutToken.stakeWithdraw(BigNumber.from(amount).mul(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)));
     });
@@ -306,7 +308,7 @@ export class Contracts extends React.Component<Props, State> {
   async _sendTransaction(
     approvalAmount: BigNumberish,
     transaction_function: () => Promise<ethers.ContractTransaction>,
-  ) {
+  ): Promise<void> {
     // Sending a transaction is a complex operation:
     //   - The user can reject it
     //   - It can fail before reaching the ethereum network (i.e. if the user
@@ -375,26 +377,14 @@ export class Contracts extends React.Component<Props, State> {
     }
   }
 
-  // This is an utility method that turns an RPC error into a human readable
-  // message.
-  _getRpcErrorMessage(error: any) {
-    if (error.data) {
-      return error.data.message;
-    }
-
-    return error.message;
-  }
-
   // This method just clears part of the state.
-  _dismissTransactionError() {
+  _dismissTransactionError(): void {
     this.setState({ transactionError: undefined });
   }
 }
 
-interface DappProps {}
-
 interface DappState {
-  networkError?: any;
+  networkError?: string;
   sproutToken?: ethers.Contract;
   ecoToken?: ethers.Contract;
   provider?: ethers.providers.Web3Provider;
@@ -413,8 +403,8 @@ interface DappState {
 // Note that (3) and (4) are specific of this sample application, but they show
 // you how to keep your Dapp and contract's state in sync,  and how to send a
 // transaction.
-export class Dapp extends React.Component<DappProps, DappState> {
-  constructor(props: DappProps) {
+export class Dapp extends React.Component<Record<string, never>, DappState> {
+  constructor(props: Record<string, never>) {
     super(props);
 
     this.state = {
@@ -422,7 +412,7 @@ export class Dapp extends React.Component<DappProps, DappState> {
     };
   }
 
-  render() {
+  render(): React.ReactNode {
     // Ethereum wallets inject the window.ethereum object. If it hasn't been
     // injected, we instruct the user to install MetaMask.
     if (window.ethereum === undefined) {
@@ -430,7 +420,7 @@ export class Dapp extends React.Component<DappProps, DappState> {
     }
 
     // The next thing we need to do, is to ask the user to connect their wallet.
-    // When the wallet gets connected, we are going to save the users's address
+    // When the wallet gets connected, we are going to save the user's address
     // in the component's state. So, if it hasn't been saved yet, we have
     // to show the ConnectWallet component.
     //
@@ -447,12 +437,12 @@ export class Dapp extends React.Component<DappProps, DappState> {
     }
 
     if (
-        !this.state.sproutToken
-        || !this.state.ecoToken
-        || !this.state.provider
-        || !this.state.selectedAddress
-        || !this.state.sproutTokenData
-        || !this.state.ecoTokenData
+      !this.state.sproutToken
+      || !this.state.ecoToken
+      || !this.state.provider
+      || !this.state.selectedAddress
+      || !this.state.sproutTokenData
+      || !this.state.ecoTokenData
     ) {
       return <Loading />;
     }
@@ -468,7 +458,7 @@ export class Dapp extends React.Component<DappProps, DappState> {
     />
   }
 
-  async _connectWallet() {
+  async _connectWallet(): Promise<void> {
     // This method is run when the user clicks the Connect. It connects the
     // dapp to the user's wallet, and initializes it.
 
@@ -492,7 +482,8 @@ export class Dapp extends React.Component<DappProps, DappState> {
       // list of sites allowed access to your addresses" (Metamask > Settings > Connections)
       // To avoid errors, we reset the dapp state
       if (newAddress === undefined) {
-        return this._resetState();
+        this._resetState();
+        return;
       }
 
       this._initialize(newAddress);
@@ -504,7 +495,7 @@ export class Dapp extends React.Component<DappProps, DappState> {
     });
   }
 
-  _initialize(userAddress: string) {
+  _initialize(userAddress: string): void {
     // This method initializes the dapp
 
     // We first store the user's address in the component's state
@@ -521,7 +512,7 @@ export class Dapp extends React.Component<DappProps, DappState> {
     this._getTokenData();
   }
 
-  async _intializeEthers() {
+  async _intializeEthers(): Promise<void> {
     // We first initialize ethers by creating a provider using window.ethereum
     this.setState({
       provider: new ethers.providers.Web3Provider(window.ethereum)
@@ -543,7 +534,7 @@ export class Dapp extends React.Component<DappProps, DappState> {
     });
   }
 
-  async _getTokenData() {
+  async _getTokenData(): Promise<void> {
     const sproutName = await this.state.sproutToken?.name();
     const sproutSymbol = await this.state.sproutToken?.symbol();
     const sproutDecimals = await this.state.sproutToken?.decimals();
@@ -558,7 +549,7 @@ export class Dapp extends React.Component<DappProps, DappState> {
   }
 
   // This method resets the state
-  _resetState() {
+  _resetState(): void {
     this.setState({
       provider: undefined,
       selectedAddress: undefined,
@@ -570,12 +561,12 @@ export class Dapp extends React.Component<DappProps, DappState> {
   }
 
   // This method just clears part of the state.
-  _dismissNetworkError() {
+  _dismissNetworkError(): void {
     this.setState({ networkError: undefined });
   }
 
   // This method checks if Metamask selected network is Localhost:8545
-  _checkNetwork() {
+  _checkNetwork(): boolean {
     if (window.ethereum.networkVersion === HARDHAT_NETWORK_ID) {
       return true;
     }

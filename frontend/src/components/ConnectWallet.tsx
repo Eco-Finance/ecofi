@@ -4,7 +4,7 @@ import { NetworkErrorMessage } from "./NetworkErrorMessage";
 
 export interface Props {
   connectWallet(): void;
-  networkError: string;
+  networkError?: string;
   dismiss(): void;
 }
 
@@ -15,9 +15,9 @@ export const ConnectWallet: React.FC<Props> = (props) => {
         <div className="col-12 text-center">
           {/* Metamask network should be set to Localhost:8545. */}
           {props.networkError && (
-            <NetworkErrorMessage 
-              message={props.networkError} 
-              dismiss={props.dismiss} 
+            <NetworkErrorMessage
+              message={props.networkError}
+              dismiss={props.dismiss}
             />
           )}
         </div>

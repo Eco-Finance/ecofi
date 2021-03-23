@@ -1,6 +1,6 @@
 import React from "react";
 
-export function NoWalletDetected() {
+export const NoWalletDetected: React.FC = () => {
   return (
     <div className="container">
       <div className="row justify-content-md-center">

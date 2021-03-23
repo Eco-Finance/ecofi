@@ -3,16 +3,15 @@ import { BigNumber } from "ethers";
 const WAD_RAY_RATIO = BigNumber.from(1e9);
 const RAY = BigNumber.from(10).pow(27);
 
-
 function rayDiv(a: BigNumber, b: BigNumber) {
-    return b.div(2).add(a.mul(RAY)).div(b)
+  return b.div(2).add(a.mul(RAY)).div(b)
 }
 
 function rayMul(a: BigNumber, b: BigNumber) {
-    return RAY.div(2).add(a.mul(b)).div(RAY);
+  return RAY.div(2).add(a.mul(b)).div(RAY);
 }
 
-function calculateGenerationRate(lastDeposit: Date, lastMint: Date, daysOffset: number) {
+function calculateGenerationRate(lastDeposit: Date, lastMint: Date, daysOffset: number): BigNumber {
   const SECONDS_PER_YEAR = BigNumber.from(365.25 * 24 * 3600);
   const MAX_BONUS_PERIOD_SECONDS_RAY = BigNumber.from(20 * 365.25 * 24 * 3600).mul(RAY);
   const MIN_STAKE_DURATION_SECONDS = BigNumber.from(90 * 24 * 3600);
@@ -20,7 +19,7 @@ function calculateGenerationRate(lastDeposit: Date, lastMint: Date, daysOffset: 
   const MILLISECONDS = 1000;
   const RATE = BigNumber.from(2).mul(RAY);
 
-  let now = new Date();
+  const now = new Date();
   now.setTime(now.getTime() + daysOffset);
 
   const generationPeriodTimeDifference =
@@ -50,14 +49,14 @@ function calculateGenerationRate(lastDeposit: Date, lastMint: Date, daysOffset: 
   }
 
   return rayMul(RATE, timeDelta);
-};
+}
 
 export function calculateTokenGeneration(
   stakeBalance: BigNumber,
   lastDeposit: Date,
   lastMint: Date,
-  daysOffset: number = 0,
-) {
+  daysOffset = 0,
+): BigNumber {
   const USER_SHARE = 90;
 
   const generationAmount = rayMul(
