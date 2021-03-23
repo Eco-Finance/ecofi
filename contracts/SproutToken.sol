@@ -217,18 +217,27 @@ contract SproutToken is ERC20Burnable {
         return mStakeBalance[_account];
     }
 
-    // Returns the amount of tokens owned by the account without taking the current
-    // stake into account. This is required by the frontend so it doesn't count the
-    // generated amount twice.
-    function rawBalanceOf(address _account) public view returns (uint256) {
-        return super.balanceOf(_account);
-    }
-
-    function lastDepositAndMintTimestamps(address _account)
+    /**
+     * @notice Returns the information required to extrapolate the generation amount.
+     * @param _account Address of the account of which the information is needed.
+     * @return SPRT balance, not taking current stakes into account.
+     * @return Staked ECO amount.
+     * @return Last deposit timestamp in seconds since epoch.
+     * @return Last mint timestamp in seconds since epoch.
+     * @dev The returned SPRT balance is not taking the current stake into 
+     * @dev account. This is required to know the actual amount of SPRT after 
+     * @dev extrapolation since `balanceOf` accounts for the current stake.
+     */
+    function generationExtrapolationInformation(address _account)
     public
     view
-    returns (uint256, uint256)
+    returns (uint256, uint256, uint256, uint256)
     {
-        return (mLastDeposit[_account], mLastMint[_account]);
+        return (
+            super.balanceOf(_account),
+            mStakeBalance[_account],
+            mLastDeposit[_account],
+            mLastMint[_account]
+        );
     }
 }

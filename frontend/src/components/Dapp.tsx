@@ -256,11 +256,9 @@ export class Contracts extends React.Component<Props, State> {
   }
 
   async _updateBalance() {
-    const sproutBalance = await this.props.sproutToken.rawBalanceOf(this.props.selectedAddress);
-    const stakeBalance = await this.props.sproutToken.ecoBalanceOf(this.props.selectedAddress);
     const ecoBalance = await this.props.ecoToken.balanceOf(this.props.selectedAddress);
-    const [lastDepositTimestamp, lastMintTimestamp] =
-      await this.props.sproutToken.lastDepositAndMintTimestamps(
+    const [sproutBalance, stakeBalance, lastDepositTimestamp, lastMintTimestamp] =
+      await this.props.sproutToken.generationExtrapolationInformation(
         this.props.selectedAddress,
       );
 
