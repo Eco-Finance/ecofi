@@ -41,4 +41,12 @@ describe("EcoFiToken", function () {
     const balance = await token.balanceOf(testAccount.address);
     expect(balance).to.equal(Amounts._100_E18);
   });
+
+  it("correctly sets sprout address", async function() {
+    const address = "0x1234567890123456789012345678901234567890";
+    const token = ecoToken.connect(ecoMultisig);
+    const txPromise = token.setSproutAddress(address);
+    await expect(txPromise).to.not.be.reverted;
+  });
+
 });

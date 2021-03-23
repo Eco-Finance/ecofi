@@ -126,11 +126,6 @@ describe("SproutToken", function () {
     console.log("SPRT balance:", await sproutToken.balanceOf(await eco_test_account.getAddress()));
   });
 
-  it("correctly sets sprout address in eco contract", async function() {
-    // TODO implement
-    throw new Error("not implemented")
-  });
-
   it("fails when trying to transfer() ECO to sprout contract", async function() {
     // TODO implement
     throw new Error("not implemented")
