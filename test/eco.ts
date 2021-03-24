@@ -9,15 +9,12 @@ import { Amounts } from "./util";
 describe("EcoFiToken", function () {
   let ecoToken: EcoFiToken;
 
-  let accounts: SignerWithAddress[];
   let ecoMultisig: SignerWithAddress;
   let testAccount: SignerWithAddress;
 
   before(async function () {
     // setup accounts
-    accounts = await ethers.getSigners();
-    ecoMultisig = accounts[0];
-    testAccount = accounts[1];
+    [ecoMultisig, testAccount] = await ethers.getSigners();
 
     // deploy EcoFiToken
     let ecoFiFactory = new EcoFiToken__factory(ecoMultisig);
