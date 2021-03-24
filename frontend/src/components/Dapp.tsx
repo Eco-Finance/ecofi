@@ -91,6 +91,38 @@ export class Contracts extends React.Component<Props, State> {
   }
 
   render(): React.ReactNode {
+    const DEFAULT_DECIMALS_SHOWN = 4;
+
+    const formatBalance = (
+      balance: BigNumber,
+      symbol: string,
+      decimalsShown: number = DEFAULT_DECIMALS_SHOWN,
+    ): string => {
+      const formatNumber = (): string => {
+        const value = balance.div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)).toString();
+
+        if (decimalsShown === 0) {
+          return `${value}`;
+        }
+
+        const balanceString = balance.toString();
+
+        if (balance.gt(BigNumber.from(10).pow(18))) {
+          const len = value.length;
+          return `${balanceString.slice(0, len)}.${balanceString.slice(
+            len,
+            len + decimalsShown
+          )}`;
+        }
+
+        const padded = balanceString.padStart(18, "0");
+
+        return `0.${padded.slice(0, decimalsShown)}`;
+      }
+
+      return `${formatNumber()} ${symbol}`
+    }
+
     return (
       <div className="container p-4">
         <div className="row">
@@ -100,25 +132,15 @@ export class Contracts extends React.Component<Props, State> {
             </h1>
             <p>
               Welcome <b>{this.props.selectedAddress}</b>, you staked{" "}
-              <b>
-                {this.state.stakeBalance.div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)).toString()} {this.props.ecoTokenData.symbol}
-              </b>
+              <b>{formatBalance(this.state.stakeBalance, this.props.ecoTokenData.symbol, 0)}</b>
               {" "}which are now worth{" "}
-              <b>
-                {this.state.displayedBalances.current.div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)).toString()} {this.props.sproutTokenData.symbol}
-              </b>
+              <b>{formatBalance(this.state.displayedBalances.current, this.props.sproutTokenData.symbol)}</b>
               , will be worth{" "}
-              <b>
-                {this.state.displayedBalances.in90days.div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)).toString()} {this.props.sproutTokenData.symbol}
-              </b>
+              <b>{formatBalance(this.state.displayedBalances.in90days, this.props.sproutTokenData.symbol)}</b>
               {" "}in 90 days and{" "}
-              <b>
-                {this.state.displayedBalances.in10years.div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)).toString()} {this.props.sproutTokenData.symbol}
-              </b>
+              <b>{formatBalance(this.state.displayedBalances.in10years, this.props.sproutTokenData.symbol)}</b>
               {" "}in 10 years. You have{" "}
-              <b>
-                {this.state.ecoBalance.div(BigNumber.from(10).pow(this.props.ecoTokenData.decimals)).toString()} {this.props.ecoTokenData.symbol}
-              </b>
+              <b>{formatBalance(this.state.ecoBalance, this.props.ecoTokenData.symbol, 0)}</b>
               {" "} you can stake.
             </p>
           </div>
