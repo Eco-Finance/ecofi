@@ -61,6 +61,7 @@ interface State {
   // The user's address and balance
   sproutBalance: BigNumber;
   displayedBalances: {current: BigNumber; in90days: BigNumber; in10years: BigNumber};
+  liveGenerationRate: BigNumber;
   stakeBalance: BigNumber;
   ecoBalance: BigNumber;
   lastDeposit: Date;
@@ -83,6 +84,7 @@ export class Contracts extends React.Component<Props, State> {
         in90days: BigNumber.from(0),
         in10years: BigNumber.from(0),
       },
+      liveGenerationRate: BigNumber.from(0),
       stakeBalance: BigNumber.from(0),
       ecoBalance: BigNumber.from(0),
       lastDeposit: new Date(),
@@ -134,7 +136,7 @@ export class Contracts extends React.Component<Props, State> {
               Welcome <b>{this.props.selectedAddress}</b>, you staked{" "}
               <b>{formatBalance(this.state.stakeBalance, this.props.ecoTokenData.symbol, 0)}</b>
               {" "}which are now worth{" "}
-              <b>{formatBalance(this.state.displayedBalances.current, this.props.sproutTokenData.symbol)}</b>
+              <b>{formatBalance(this.state.displayedBalances.current, this.props.sproutTokenData.symbol, 8)}</b>
               , will be worth{" "}
               <b>{formatBalance(this.state.displayedBalances.in90days, this.props.sproutTokenData.symbol)}</b>
               {" "}in 90 days and{" "}
@@ -142,6 +144,9 @@ export class Contracts extends React.Component<Props, State> {
               {" "}in 10 years. You have{" "}
               <b>{formatBalance(this.state.ecoBalance, this.props.ecoTokenData.symbol, 0)}</b>
               {" "} you can stake.
+            </p>
+            <p>
+              Live generation rate: <b>{formatBalance(this.state.liveGenerationRate, this.props.sproutTokenData.symbol, 8)}</b>.
             </p>
           </div>
         </div>
@@ -249,6 +254,7 @@ export class Contracts extends React.Component<Props, State> {
       in90days: this.state.sproutBalance,
       in10years: this.state.sproutBalance,
     };
+    let liveGenerationRate = BigNumber.from(0);
 
     if (this.state.stakeBalance.gt(0)) {
       const current = calculateTokenGeneration(
@@ -276,7 +282,9 @@ export class Contracts extends React.Component<Props, State> {
       displayedBalances.in10years = displayedBalances.in10years.add(in10years);
     }
 
-    this.setState({displayedBalances: displayedBalances});
+    liveGenerationRate = displayedBalances.current.sub(this.state.displayedBalances.current);
+
+    this.setState({displayedBalances: displayedBalances, liveGenerationRate: liveGenerationRate});
   }
 
   async _updateBalance(): Promise<void> {
