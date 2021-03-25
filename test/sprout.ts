@@ -12,6 +12,7 @@ import {
   currentBlockTimestamp,
   fastForwardTo,
   calculateTokenGeneration,
+  RAY,
   SECONDS_IN_A_DAY,
   closeTo,
 } from "./util";
@@ -26,6 +27,8 @@ describe("SproutToken", function () {
   // context
   let stakeBalance: BigNumber;
   let stakeDepositTimestamp: number;
+
+  let snapshot: number;
 
   before(async function () {
     // setup accounts
@@ -79,6 +82,8 @@ describe("SproutToken", function () {
     expect(await sproutToken.balanceOf(ecoTestAccount.address)).to.equal(
       Amounts._0
     );
+
+    snapshot = await ethers.provider.send("evm_snapshot", []);
   });
 
   it("fails to withdraw 10 ECO too early", async function () {
@@ -130,6 +135,51 @@ describe("SproutToken", function () {
         closeTo(sprtBalance, expectedReward, 1),
         "SPRT is not correct after " + timeStop + " days"
       ).to.be.true;
+    }
+  });
+
+  it("computes the raw generation rate", async function () {
+    await ethers.provider.send("evm_revert", [snapshot]);
+
+    const lastDeposit = stakeDepositTimestamp;
+    const YEAR = 365.25;
+    const RATE = RAY.mul(2);
+
+    // Computed values between 90 days and 20 years with WolframAlpha using
+    // the following input:
+    // 2e27 + (1e27/2 + 1584404390701447512 * (t - 7776000) * 1e27) / 1e27
+    //
+    // The expected cap at 20 years was expected to be 3*10e27; it's a bit
+    // higher but not by much so the value used by the test was empirically
+    // determined.
+    const testCases: {
+      after: number;
+      expected: BigNumber;
+    }[] = [
+      {after: 4, expected: RATE},
+      {after: 89, expected: RATE},
+      {after: 91, expected: BigNumber.from('4000273785078713210130073601').div(2)},
+      {after: YEAR , expected: BigNumber.from('4075359342915811088302758401').div(2)},
+      {after: YEAR * 10, expected: BigNumber.from('4975359342915811088387200001').div(2)},
+      {after: YEAR * 20, expected: BigNumber.from('5975359342915811088481024001').div(2)},
+      {after: YEAR * 30, expected: BigNumber.from('3000000000000000000093824000')},
+      {after: YEAR * 40, expected: BigNumber.from('3000000000000000000093824000')},
+    ];
+
+    for (const testCase of testCases) {
+      // fast forward chain to stake timestamp + testCase.after
+      const nextBlockTimestamp =
+        stakeDepositTimestamp + testCase.after * SECONDS_IN_A_DAY;
+      await fastForwardTo(nextBlockTimestamp);
+      expect(
+        await currentBlockTimestamp(),
+        `current timestamp should be ${testCase.after} days after initial stake`
+      ).to.equal(nextBlockTimestamp);
+
+      const rawGenerationRate = await sproutToken.rawGenerationRate(RATE, lastDeposit);
+      expect(rawGenerationRate,
+        `incorrect generation rate after ${testCase.after}`
+      ).to.equal(testCase.expected);
     }
   });
 

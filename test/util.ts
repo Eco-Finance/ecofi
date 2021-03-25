@@ -12,7 +12,7 @@ export namespace Amounts {
 export const SECONDS_IN_A_DAY = 24 * 60 * 60;
 
 export async function currentBlockTimestamp(): Promise<number> {
-  const number = ethers.provider.getBlockNumber();
+  const number = await ethers.provider.send("eth_blockNumber", []);
   const block = ethers.provider.getBlock(number);
   return (await block).timestamp;
 }
@@ -27,7 +27,7 @@ export function closeTo(a: BigNumber, b:BigNumber, delta: number): boolean {
 }
 
 const WAD_RAY_RATIO = BigNumber.from(1e9);
-const RAY = BigNumber.from(10).pow(27);
+export const RAY = BigNumber.from(10).pow(27);
 
 function rayDiv(a: BigNumber, b: BigNumber) {
   return b.div(2).add(a.mul(RAY)).div(b)
