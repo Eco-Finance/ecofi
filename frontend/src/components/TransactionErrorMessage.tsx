@@ -20,4 +20,4 @@ export const TransactionErrorMessage: React.FC<Props> = (props) => {
       </button>
     </div>
   );
-}
+};

@@ -34,4 +34,4 @@ export const ConnectWallet: React.FC<Props> = (props) => {
       </div>
     </div>
   );
-}
+};

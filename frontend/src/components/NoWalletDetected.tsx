@@ -21,4 +21,4 @@ export const NoWalletDetected: React.FC = () => {
       </div>
     </div>
   );
-}
+};

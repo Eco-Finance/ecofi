@@ -10,4 +10,4 @@ export const WaitingForTransactionMessage: React.FC<Props> = (props) => {
       Waiting for transaction <strong>{props.txHash}</strong> to be mined
     </div>
   );
-}
+};
