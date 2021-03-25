@@ -23,7 +23,7 @@ import { StakeWithdraw } from "./StakeWithdraw";
 import { TransactionErrorMessage } from "./TransactionErrorMessage";
 import { WaitingForTransactionMessage } from "./WaitingForTransactionMessage";
 
-import { calculateTokenGeneration } from "../generation";
+import { generationRate, calculateTokenGeneration } from "../generation";
 
 // This is the Hardhat Network id, you might change it in the hardhat.config.js
 // Here's a list of network ids https://docs.metamask.io/guide/ethereum-provider.html#properties
@@ -184,9 +184,9 @@ export class Contracts extends React.Component<Props, State> {
               Live generation rate:{" "}
               <b>
                 {formatBalance(
-                  this.state.liveGenerationRate,
-                  this.props.sproutTokenData.symbol,
-                  8
+                  this.state.liveGenerationRate.mul(100),
+                  '%',
+                  2
                 )}
               </b>
               .
@@ -298,6 +298,7 @@ export class Contracts extends React.Component<Props, State> {
       in90days: this.state.sproutBalance,
       in10years: this.state.sproutBalance,
     };
+
     let liveGenerationRate = BigNumber.from(0);
 
     if (this.state.stakeBalance.gt(0)) {
@@ -324,11 +325,9 @@ export class Contracts extends React.Component<Props, State> {
       displayedBalances.current = displayedBalances.current.add(current);
       displayedBalances.in90days = displayedBalances.in90days.add(in90days);
       displayedBalances.in10years = displayedBalances.in10years.add(in10years);
-    }
 
-    liveGenerationRate = displayedBalances.current.sub(
-      this.state.displayedBalances.current
-    );
+      liveGenerationRate = generationRate(this.state.lastDeposit);
+    }
 
     this.setState({
       displayedBalances: displayedBalances,
