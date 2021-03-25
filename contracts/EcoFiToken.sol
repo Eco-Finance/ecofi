@@ -64,7 +64,7 @@ contract EcoFiToken is ERC20Burnable {
      * - `_recipient` cannot be the sprout contract address.
      */
     function transfer(address _recipient, uint256 _amount) public virtual override returns (bool) {
-        require(_recipient != address(this), "EcoFiToken: transfer to sprout contract address (use transferFrom instead)");
+        require(_recipient != address(sproutContract), "EcoFiToken: transfer to sprout contract address (use transferFrom instead)");
         return super.transfer(_recipient, _amount);
     }
 
