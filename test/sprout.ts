@@ -17,19 +17,11 @@ import {
 } from "./util";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-interface UserState {
-  stakeBalance: BigNumber;
-  lastDeposit: BigNumber;
-  lastMint: BigNumber;
-}
-
 describe("SproutToken", function () {
   let ecoToken: EcoFiToken;
   let sproutToken: SproutToken;
   let ecoMultisig: SignerWithAddress;
   let ecoTestAccount: SignerWithAddress;
-
-  const MIN_STAKE_DURATION_SECONDS = 7776000;
 
   // context
   let stakeBalance: BigNumber;
@@ -45,7 +37,7 @@ describe("SproutToken", function () {
     await ecoToken.deployed();
 
     // send 1000 tokens to eco_test_account
-    const transfer = await ecoToken
+    await ecoToken
       .connect(ecoMultisig)
       .transfer(ecoTestAccount.address, Amounts._1000_E18);
 
@@ -60,9 +52,9 @@ describe("SproutToken", function () {
 
   it("deposits 100 ECO from test account", async function () {
     // approve, stake
-    const approve = await ecoToken
+    await ecoToken
       .connect(ecoTestAccount)
-      .approve(await sproutToken.address, Amounts._100_E18);
+      .approve(sproutToken.address, Amounts._100_E18);
     const tx = await sproutToken
       .connect(ecoTestAccount)
       .stakeDeposit(Amounts._100_E18);
