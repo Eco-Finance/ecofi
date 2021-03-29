@@ -70,6 +70,7 @@ interface State {
   ecoBalance: BigNumber;
   lastDeposit: Date;
   lastMint: Date;
+  blockOffset: number;
   // The ID about transactions being sent, and any possible error with them
   txBeingSent?: string;
   transactionError?: Error;
@@ -93,6 +94,7 @@ export class Contracts extends React.Component<Props, State> {
       ecoBalance: BigNumber.from(0),
       lastDeposit: new Date(),
       lastMint: new Date(),
+      blockOffset: 0,
     };
   }
 
@@ -183,11 +185,7 @@ export class Contracts extends React.Component<Props, State> {
             <p>
               Live generation rate:{" "}
               <b>
-                {formatBalance(
-                  this.state.liveGenerationRate.mul(100),
-                  '%',
-                  2
-                )}
+                {formatBalance(this.state.liveGenerationRate.mul(100), "%", 2)}
               </b>
               .
             </p>
@@ -305,13 +303,15 @@ export class Contracts extends React.Component<Props, State> {
       const current = calculateTokenGeneration(
         this.state.stakeBalance,
         this.state.lastDeposit,
-        this.state.lastMint
+        this.state.lastMint,
+        this.state.blockOffset
       );
 
       const in90days = calculateTokenGeneration(
         this.state.stakeBalance,
         this.state.lastDeposit,
         this.state.lastMint,
+        this.state.blockOffset,
         _90DAYS
       );
 
@@ -319,6 +319,7 @@ export class Contracts extends React.Component<Props, State> {
         this.state.stakeBalance,
         this.state.lastDeposit,
         this.state.lastMint,
+        this.state.blockOffset,
         _10YEARS
       );
 
@@ -326,7 +327,10 @@ export class Contracts extends React.Component<Props, State> {
       displayedBalances.in90days = displayedBalances.in90days.add(in90days);
       displayedBalances.in10years = displayedBalances.in10years.add(in10years);
 
-      liveGenerationRate = generationRate(this.state.lastDeposit);
+      liveGenerationRate = generationRate(
+        this.state.lastDeposit,
+        this.state.blockOffset
+      );
     }
 
     this.setState({
@@ -344,6 +348,7 @@ export class Contracts extends React.Component<Props, State> {
       stakeBalance,
       lastDepositTimestamp,
       lastMintTimestamp,
+      blockTimestamp,
     ] = await this.props.sproutToken.generationExtrapolationInformation(
       this.props.selectedAddress
     );
@@ -358,6 +363,9 @@ export class Contracts extends React.Component<Props, State> {
     const lastDeposit = new Date(lastDepositTimestamp.mul(1000).toNumber());
     const lastMint = new Date(lastMintTimestamp.mul(1000).toNumber());
 
+    const blockOffset =
+      blockTimestamp.mul(1000).toNumber() - new Date().getTime();
+
     this.setState({
       sproutBalance,
       stakeBalance,
@@ -365,6 +373,7 @@ export class Contracts extends React.Component<Props, State> {
       displayedBalances,
       lastDeposit,
       lastMint,
+      blockOffset,
     });
   }
 

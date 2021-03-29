@@ -16,12 +16,13 @@ function rayMul(a: BigNumber, b: BigNumber) {
 function calculateGenerationRate(
   lastDeposit: Date,
   lastMint: Date,
+  blockOffset: number,
   daysOffset = 0
 ): BigNumber {
   const SECONDS_PER_YEAR = BigNumber.from(365.25 * 24 * 3600);
 
   const now = new Date();
-  now.setTime(now.getTime() + daysOffset);
+  now.setTime(now.getTime() + blockOffset + daysOffset);
 
   const mintTimeDifference = BigNumber.from(
     now.getTime() - lastMint.getTime()
@@ -31,10 +32,17 @@ function calculateGenerationRate(
     SECONDS_PER_YEAR.mul(WAD_RAY_RATIO)
   );
 
-  return rayMul(rawGenerationRate(lastDeposit, daysOffset), timeDelta);
+  return rayMul(
+    rawGenerationRate(lastDeposit, blockOffset, daysOffset),
+    timeDelta
+  );
 }
 
-function rawGenerationRate(lastDeposit: Date, daysOffset = 0): BigNumber {
+function rawGenerationRate(
+  lastDeposit: Date,
+  blockOffset: number,
+  daysOffset = 0
+): BigNumber {
   const MAX_BONUS_PERIOD_SECONDS_RAY = BigNumber.from(
     20 * 365.25 * 24 * 3600
   ).mul(RAY);
@@ -43,7 +51,7 @@ function rawGenerationRate(lastDeposit: Date, daysOffset = 0): BigNumber {
   const RATE = BigNumber.from(2).mul(RAY);
 
   const now = new Date();
-  now.setTime(now.getTime() + daysOffset);
+  now.setTime(now.getTime() + blockOffset + daysOffset);
 
   const generationPeriodTimeDifference = BigNumber.from(
     now.getTime() - lastDeposit.getTime()
@@ -67,17 +75,21 @@ export function calculateTokenGeneration(
   stakeBalance: BigNumber,
   lastDeposit: Date,
   lastMint: Date,
+  blockOffset: number,
   daysOffset = 0
 ): BigNumber {
   const USER_SHARE = 90;
 
   const generationAmount = rayMul(
     stakeBalance.mul(WAD_RAY_RATIO),
-    calculateGenerationRate(lastDeposit, lastMint, daysOffset)
+    calculateGenerationRate(lastDeposit, lastMint, blockOffset, daysOffset)
   ).div(WAD_RAY_RATIO);
   return generationAmount.mul(USER_SHARE).div(100);
 }
 
-export function generationRate(lastDeposit: Date): BigNumber {
-  return rawGenerationRate(lastDeposit).div(WAD_RAY_RATIO);
+export function generationRate(
+  lastDeposit: Date,
+  blockOffset: number
+): BigNumber {
+  return rawGenerationRate(lastDeposit, blockOffset).div(WAD_RAY_RATIO);
 }
