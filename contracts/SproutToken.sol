@@ -87,6 +87,34 @@ contract SproutToken is ERC20Burnable {
         super._transfer(_sender, _recipient, _amount);
     }
 
+    /**
+    * @notice Computes the interest rate at the given rate from the given deposit time.
+    * @param _rate the base interest rate in ray
+    * @param _lastDepositTimestamp the timestamp of the last deposit (& withdraw for now TODO)
+    * @return the raw interest rate which depends on the last deposit time
+    * @dev The returned rate varies from 200% (before 90 days) and 
+    * @dev 300% (20 years and up) and is linear between those points.
+    */
+    function rawGenerationRate(uint256 _rate, uint256 _lastDepositTimestamp)
+        public
+        view
+        returns (uint256)
+    {
+        //solium-disable-next-line
+        uint256 generationPeriodTimeDifference = block.timestamp - _lastDepositTimestamp;
+
+        // calculate long duration staking bonus
+        if(generationPeriodTimeDifference > MIN_STAKE_DURATION_SECONDS){
+            uint256 bonusPeriod = generationPeriodTimeDifference.sub(MIN_STAKE_DURATION_SECONDS).mul(1e27); // current bonus period in seconds in ray
+            if(bonusPeriod > MAX_BONUS_PERIOD_SECONDS_RAY){
+                // max bonus period 20yrs
+                bonusPeriod = MAX_BONUS_PERIOD_SECONDS_RAY;
+            }
+
+            return _rate.add(GENERATION_BONUS_PER_SECOND.rayMul(bonusPeriod));
+        }
+        return _rate;
+    }
 
     /**
     * @dev function to calculate the interest using a linear interest rate formula
@@ -101,21 +129,10 @@ contract SproutToken is ERC20Burnable {
         returns (uint256)
     {
         //solium-disable-next-line
-        uint256 generationPeriodTimeDifference = block.timestamp - _lastDepositTimestamp;
         uint256 mintTimeDifference = block.timestamp - _lastMintTimestamp;
         uint256 timeDelta = mintTimeDifference.wadToRay().rayDiv(SECONDS_PER_YEAR.wadToRay());
         
-        // calculate long duration staking bonus
-        if(generationPeriodTimeDifference > MIN_STAKE_DURATION_SECONDS){
-            uint256 bonusPeriod = generationPeriodTimeDifference.sub(MIN_STAKE_DURATION_SECONDS).mul(1e27); // current bonus period in seconds in ray
-            if(bonusPeriod > MAX_BONUS_PERIOD_SECONDS_RAY){
-                // max bonus period 20yrs
-                bonusPeriod = MAX_BONUS_PERIOD_SECONDS_RAY;
-            }
-
-            return _rate.add(GENERATION_BONUS_PER_SECOND.rayMul(bonusPeriod)).rayMul(timeDelta);
-        }
-        return _rate.rayMul(timeDelta);
+        return rawGenerationRate(_rate, _lastDepositTimestamp).rayMul(timeDelta);
     }
 
 
