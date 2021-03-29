@@ -182,19 +182,4 @@ describe("SproutToken", function () {
       ).to.equal(testCase.expected);
     }
   });
-
-  it("fails to transfer 10 ECO to sprout contract", async function () {
-    const amount = Amounts._10_E18;
-    const token = ecoToken.connect(ecoTestAccount);
-
-    // check user has balance for 10 ECO
-    const balance = await token.balanceOf(ecoTestAccount.address);
-    expect(balance.gte(amount), "insufficient balance").to.be.true;
-
-    // transfer 10 ECO to Sprout
-    const txPromise = token.transfer(sproutToken.address, amount);
-    await expect(txPromise).to.be.revertedWith(
-      "EcoFiToken: transfer to sprout contract address (use transferFrom instead)"
-    );
-  });
 });
