@@ -12,6 +12,8 @@ describe("EcoFiToken", function () {
   let ecoMultisig: SignerWithAddress;
   let testAccount: SignerWithAddress;
 
+  const sproutAddress = "0x1234567890123456789012345678901234567890";
+
   before(async function () {
     // setup accounts
     [ecoMultisig, testAccount] = await ethers.getSigners();
@@ -40,10 +42,21 @@ describe("EcoFiToken", function () {
   });
 
   it("correctly sets sprout address", async function() {
-    const address = "0x1234567890123456789012345678901234567890";
     const token = ecoToken.connect(ecoMultisig);
-    const txPromise = token.setSproutAddress(address);
+    const txPromise = token.setSproutAddress(sproutAddress);
     await expect(txPromise).to.not.be.reverted;
   });
 
+  it("fails to transfer 10 ECO to sprout contract", async function () {
+    const amount = Amounts._10_E18;
+    const token = ecoToken.connect(ecoMultisig);
+
+    // check user has balance for 10 ECO
+    const balance = await token.balanceOf(ecoMultisig.address);
+    expect(balance.gte(amount), "insufficient balance").to.be.true;
+
+    // transfer 10 ECO to Sprout
+    const txPromise = token.transfer(sproutAddress, amount);
+    await expect(txPromise).to.be.reverted;
+  });
 });
