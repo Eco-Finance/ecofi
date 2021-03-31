@@ -20,4 +20,4 @@ export const NetworkErrorMessage: React.FC<Props> = (props) => {
       </button>
     </div>
   );
-}
+};

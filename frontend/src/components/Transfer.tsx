@@ -17,9 +17,9 @@ export const Transfer: React.FC<Props> = (props) => {
           event.preventDefault();
 
           const target = event.target as typeof event.target & {
-            to: {value: string};
-            amount: {value: ethers.BigNumberish};
-          }
+            to: { value: string };
+            amount: { value: ethers.BigNumberish };
+          };
           const to = target.to.value;
           const amount = target.amount.value;
 
@@ -49,4 +49,4 @@ export const Transfer: React.FC<Props> = (props) => {
       </form>
     </div>
   );
-}
+};

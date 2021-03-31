@@ -17,8 +17,8 @@ export const StakeWithdraw: React.FC<Props> = (props) => {
           event.preventDefault();
 
           const target = event.target as typeof event.target & {
-            amount: {value: number};
-          }
+            amount: { value: number };
+          };
           const amount = target.amount.value;
 
           if (amount) {
@@ -38,9 +38,13 @@ export const StakeWithdraw: React.FC<Props> = (props) => {
           />
         </div>
         <div className="form-group">
-          <input className="btn btn-primary" type="submit" value="Stake Withdraw" />
+          <input
+            className="btn btn-primary"
+            type="submit"
+            value="Stake Withdraw"
+          />
         </div>
       </form>
     </div>
   );
-}
+};

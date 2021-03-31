@@ -23,12 +23,12 @@ import { StakeWithdraw } from "./StakeWithdraw";
 import { TransactionErrorMessage } from "./TransactionErrorMessage";
 import { WaitingForTransactionMessage } from "./WaitingForTransactionMessage";
 
-import { calculateTokenGeneration } from "../generation";
+import { generationRate, calculateTokenGeneration } from "../generation";
 
 // This is the Hardhat Network id, you might change it in the hardhat.config.js
 // Here's a list of network ids https://docs.metamask.io/guide/ethereum-provider.html#properties
 // to use when deploying to other networks.
-const HARDHAT_NETWORK_ID = '1337';
+const HARDHAT_NETWORK_ID = "1337";
 
 // This is an error code that indicates that the user canceled a transaction
 const ERROR_CODE_TX_REJECTED_BY_USER = 4001;
@@ -60,11 +60,17 @@ interface Props {
 interface State {
   // The user's address and balance
   sproutBalance: BigNumber;
-  displayedBalances: {current: BigNumber; in90days: BigNumber; in10years: BigNumber};
+  displayedBalances: {
+    current: BigNumber;
+    in90days: BigNumber;
+    in10years: BigNumber;
+  };
+  liveGenerationRate: BigNumber;
   stakeBalance: BigNumber;
   ecoBalance: BigNumber;
   lastDeposit: Date;
   lastMint: Date;
+  blockOffset: number;
   // The ID about transactions being sent, and any possible error with them
   txBeingSent?: string;
   transactionError?: Error;
@@ -83,43 +89,105 @@ export class Contracts extends React.Component<Props, State> {
         in90days: BigNumber.from(0),
         in10years: BigNumber.from(0),
       },
+      liveGenerationRate: BigNumber.from(0),
       stakeBalance: BigNumber.from(0),
       ecoBalance: BigNumber.from(0),
       lastDeposit: new Date(),
       lastMint: new Date(),
+      blockOffset: 0,
     };
   }
 
   render(): React.ReactNode {
+    const DEFAULT_DECIMALS_SHOWN = 4;
+
+    const formatBalance = (
+      balance: BigNumber,
+      symbol: string,
+      decimalsShown: number = DEFAULT_DECIMALS_SHOWN
+    ): string => {
+      const formatNumber = (): string => {
+        const value = balance
+          .div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals))
+          .toString();
+
+        if (decimalsShown === 0) {
+          return `${value}`;
+        }
+
+        const balanceString = balance.toString();
+
+        if (balance.gt(BigNumber.from(10).pow(18))) {
+          const len = value.length;
+          return `${balanceString.slice(0, len)}.${balanceString.slice(
+            len,
+            len + decimalsShown
+          )}`;
+        }
+
+        const padded = balanceString.padStart(18, "0");
+
+        return `0.${padded.slice(0, decimalsShown)}`;
+      };
+
+      return `${formatNumber()} ${symbol}`;
+    };
+
     return (
       <div className="container p-4">
         <div className="row">
           <div className="col-12">
             <h1>
-              {this.props.sproutTokenData.name} ({this.props.sproutTokenData.symbol})
+              {this.props.sproutTokenData.name} (
+              {this.props.sproutTokenData.symbol})
             </h1>
             <p>
               Welcome <b>{this.props.selectedAddress}</b>, you staked{" "}
               <b>
-                {this.state.stakeBalance.div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)).toString()} {this.props.ecoTokenData.symbol}
-              </b>
-              {" "}which are now worth{" "}
+                {formatBalance(
+                  this.state.stakeBalance,
+                  this.props.ecoTokenData.symbol,
+                  0
+                )}
+              </b>{" "}
+              which are now worth{" "}
               <b>
-                {this.state.displayedBalances.current.div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)).toString()} {this.props.sproutTokenData.symbol}
+                {formatBalance(
+                  this.state.displayedBalances.current,
+                  this.props.sproutTokenData.symbol,
+                  8
+                )}
               </b>
               , will be worth{" "}
               <b>
-                {this.state.displayedBalances.in90days.div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)).toString()} {this.props.sproutTokenData.symbol}
-              </b>
-              {" "}in 90 days and{" "}
+                {formatBalance(
+                  this.state.displayedBalances.in90days,
+                  this.props.sproutTokenData.symbol
+                )}
+              </b>{" "}
+              in 90 days and{" "}
               <b>
-                {this.state.displayedBalances.in10years.div(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)).toString()} {this.props.sproutTokenData.symbol}
-              </b>
-              {" "}in 10 years. You have{" "}
+                {formatBalance(
+                  this.state.displayedBalances.in10years,
+                  this.props.sproutTokenData.symbol
+                )}
+              </b>{" "}
+              in 10 years. You have{" "}
               <b>
-                {this.state.ecoBalance.div(BigNumber.from(10).pow(this.props.ecoTokenData.decimals)).toString()} {this.props.ecoTokenData.symbol}
+                {formatBalance(
+                  this.state.ecoBalance,
+                  this.props.ecoTokenData.symbol,
+                  0
+                )}
+              </b>{" "}
+              you can stake.
+            </p>
+            <p>
+              Live generation rate:{" "}
+              <b>
+                {formatBalance(this.state.liveGenerationRate.mul(100), "%", 2)}
               </b>
-              {" "} you can stake.
+              .
             </p>
           </div>
         </div>
@@ -152,45 +220,41 @@ export class Contracts extends React.Component<Props, State> {
 
         <div className="row">
           <div className="col-12">
-              <StakeDeposit
-                stakeDeposit={(amount) =>
-                  this._stakeDeposit(amount)
-                }
-                tokenSymbol={this.props.ecoTokenData.symbol}
-              />
+            <StakeDeposit
+              stakeDeposit={(amount) => this._stakeDeposit(amount)}
+              tokenSymbol={this.props.ecoTokenData.symbol}
+            />
           </div>
         </div>
 
         <div className="row">
           <div className="col-12">
-              <StakeWithdraw
-                stakeWithdraw={(amount) =>
-                  this._stakeWithdraw(amount)
-                }
-                tokenSymbol={this.props.ecoTokenData.symbol}
-              />
+            <StakeWithdraw
+              stakeWithdraw={(amount) => this._stakeWithdraw(amount)}
+              tokenSymbol={this.props.ecoTokenData.symbol}
+            />
           </div>
         </div>
 
         <div className="row">
           <div className="col-12">
-              <Transfer
-                transferTokens={(to, amount) =>
-                  this._transferTokens(this.props.sproutToken, to, amount)
-                }
-                tokenSymbol={this.props.sproutTokenData.symbol}
-              />
+            <Transfer
+              transferTokens={(to, amount) =>
+                this._transferTokens(this.props.sproutToken, to, amount)
+              }
+              tokenSymbol={this.props.sproutTokenData.symbol}
+            />
           </div>
         </div>
 
         <div className="row">
           <div className="col-12">
-              <Transfer
-                transferTokens={(to, amount) =>
-                  this._transferTokens(this.props.ecoToken, to, amount)
-                }
-                tokenSymbol={this.props.ecoTokenData.symbol}
-              />
+            <Transfer
+              transferTokens={(to, amount) =>
+                this._transferTokens(this.props.ecoToken, to, amount)
+              }
+              tokenSymbol={this.props.ecoTokenData.symbol}
+            />
           </div>
         </div>
       </div>
@@ -198,11 +262,16 @@ export class Contracts extends React.Component<Props, State> {
   }
 
   componentDidMount(): void {
-    this._updateBalance().then(() => {this._startExtrapolatingBalance()});
+    this._updateBalance().then(() => {
+      this._startExtrapolatingBalance();
+    });
   }
 
   _startExtrapolatingBalance(): void {
-    this._extrapolationInterval = setInterval(() => this._extrapolateBalance(), 1000);
+    this._extrapolationInterval = setInterval(
+      () => this._extrapolateBalance(),
+      1000
+    );
     this._extrapolateBalance();
   }
 
@@ -228,51 +297,74 @@ export class Contracts extends React.Component<Props, State> {
       in10years: this.state.sproutBalance,
     };
 
+    let liveGenerationRate = BigNumber.from(0);
+
     if (this.state.stakeBalance.gt(0)) {
       const current = calculateTokenGeneration(
         this.state.stakeBalance,
         this.state.lastDeposit,
         this.state.lastMint,
+        this.state.blockOffset
       );
 
       const in90days = calculateTokenGeneration(
         this.state.stakeBalance,
         this.state.lastDeposit,
         this.state.lastMint,
-        _90DAYS,
+        this.state.blockOffset,
+        _90DAYS
       );
 
       const in10years = calculateTokenGeneration(
         this.state.stakeBalance,
         this.state.lastDeposit,
         this.state.lastMint,
-        _10YEARS,
+        this.state.blockOffset,
+        _10YEARS
       );
 
       displayedBalances.current = displayedBalances.current.add(current);
       displayedBalances.in90days = displayedBalances.in90days.add(in90days);
       displayedBalances.in10years = displayedBalances.in10years.add(in10years);
+
+      liveGenerationRate = generationRate(
+        this.state.lastDeposit,
+        this.state.blockOffset
+      );
     }
 
-    this.setState({displayedBalances: displayedBalances});
+    this.setState({
+      displayedBalances: displayedBalances,
+      liveGenerationRate: liveGenerationRate,
+    });
   }
 
   async _updateBalance(): Promise<void> {
-    const ecoBalance = await this.props.ecoToken.balanceOf(this.props.selectedAddress);
-    const [sproutBalance, stakeBalance, lastDepositTimestamp, lastMintTimestamp] =
-      await this.props.sproutToken.generationExtrapolationInformation(
-        this.props.selectedAddress,
-      );
+    const ecoBalance = await this.props.ecoToken.balanceOf(
+      this.props.selectedAddress
+    );
+    const [
+      sproutBalance,
+      stakeBalance,
+      lastDepositTimestamp,
+      lastMintTimestamp,
+      blockTimestamp,
+    ] = await this.props.sproutToken.generationExtrapolationInformation(
+      this.props.selectedAddress
+    );
 
     const displayedBalances = {
       current: sproutBalance,
       in90days: sproutBalance,
       in10years: sproutBalance,
-    }
+    };
 
     // Received timestamps are in seconds, they must be converted to milliseconds.
     const lastDeposit = new Date(lastDepositTimestamp.mul(1000).toNumber());
     const lastMint = new Date(lastMintTimestamp.mul(1000).toNumber());
+
+    const blockOffset =
+      blockTimestamp.mul(1000).toNumber() - new Date().getTime();
 
     this.setState({
       sproutBalance,
@@ -280,34 +372,52 @@ export class Contracts extends React.Component<Props, State> {
       ecoBalance,
       displayedBalances,
       lastDeposit,
-      lastMint
+      lastMint,
+      blockOffset,
     });
   }
 
   // This method sends an ethereum transaction to transfer tokens.
   // While this action is specific to this application, it illustrates how to
   // send a transaction.
-  async _transferTokens(token: ethers.Contract, to: string, amount: BigNumberish): Promise<void> {
+  async _transferTokens(
+    token: ethers.Contract,
+    to: string,
+    amount: BigNumberish
+  ): Promise<void> {
     this._sendTransaction(0, () => {
-      return token.transfer(to, BigNumber.from(amount).mul(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)));
+      return token.transfer(
+        to,
+        BigNumber.from(amount).mul(
+          BigNumber.from(10).pow(this.props.sproutTokenData.decimals)
+        )
+      );
     });
   }
 
   async _stakeDeposit(amount: BigNumberish): Promise<void> {
     this._sendTransaction(amount, () => {
-      return this.props.sproutToken.stakeDeposit(BigNumber.from(amount).mul(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)));
+      return this.props.sproutToken.stakeDeposit(
+        BigNumber.from(amount).mul(
+          BigNumber.from(10).pow(this.props.sproutTokenData.decimals)
+        )
+      );
     });
   }
 
   async _stakeWithdraw(amount: BigNumberish): Promise<void> {
     this._sendTransaction(0, () => {
-      return this.props.sproutToken.stakeWithdraw(BigNumber.from(amount).mul(BigNumber.from(10).pow(this.props.sproutTokenData.decimals)));
+      return this.props.sproutToken.stakeWithdraw(
+        BigNumber.from(amount).mul(
+          BigNumber.from(10).pow(this.props.sproutTokenData.decimals)
+        )
+      );
     });
   }
 
   async _sendTransaction(
     approvalAmount: BigNumberish,
-    transaction_function: () => Promise<ethers.ContractTransaction>,
+    transaction_function: () => Promise<ethers.ContractTransaction>
   ): Promise<void> {
     // Sending a transaction is a complex operation:
     //   - The user can reject it
@@ -329,14 +439,15 @@ export class Contracts extends React.Component<Props, State> {
       this._dismissTransactionError();
 
       if (approvalAmount > 0) {
-        const approve = await this.props.ecoToken
-          .approve(
-            this.props.sproutToken.address,
-            BigNumber.from(approvalAmount).mul(BigNumber.from(10).pow(this.props.ecoTokenData.decimals)),
-          );
+        const approve = await this.props.ecoToken.approve(
+          this.props.sproutToken.address,
+          BigNumber.from(approvalAmount).mul(
+            BigNumber.from(10).pow(this.props.ecoTokenData.decimals)
+          )
+        );
 
         if (approve.status === 0) {
-          throw new Error("Approval failed")
+          throw new Error("Approval failed");
         }
       }
 
@@ -408,7 +519,7 @@ export class Dapp extends React.Component<Record<string, never>, DappState> {
     super(props);
 
     this.state = {
-      networkError: undefined
+      networkError: undefined,
     };
   }
 
@@ -437,25 +548,27 @@ export class Dapp extends React.Component<Record<string, never>, DappState> {
     }
 
     if (
-      !this.state.sproutToken
-      || !this.state.ecoToken
-      || !this.state.provider
-      || !this.state.selectedAddress
-      || !this.state.sproutTokenData
-      || !this.state.ecoTokenData
+      !this.state.sproutToken ||
+      !this.state.ecoToken ||
+      !this.state.provider ||
+      !this.state.selectedAddress ||
+      !this.state.sproutTokenData ||
+      !this.state.ecoTokenData
     ) {
       return <Loading />;
     }
 
     // If everything is loaded, we render the application.
-    return <Contracts
-      sproutToken = {this.state.sproutToken}
-      ecoToken = {this.state.ecoToken}
-      provider = {this.state.provider}
-      sproutTokenData = {this.state.sproutTokenData}
-      ecoTokenData = {this.state.ecoTokenData}
-      selectedAddress = {this.state.selectedAddress}
-    />
+    return (
+      <Contracts
+        sproutToken={this.state.sproutToken}
+        ecoToken={this.state.ecoToken}
+        provider={this.state.provider}
+        sproutTokenData={this.state.sproutTokenData}
+        ecoTokenData={this.state.ecoTokenData}
+        selectedAddress={this.state.selectedAddress}
+      />
+    );
   }
 
   async _connectWallet(): Promise<void> {
@@ -500,7 +613,7 @@ export class Dapp extends React.Component<Record<string, never>, DappState> {
 
     // We first store the user's address in the component's state
     this.setState({
-      selectedAddress: userAddress
+      selectedAddress: userAddress,
     });
 
     // Then, we initialize ethers, fetch the token's data, and start polling
@@ -515,7 +628,7 @@ export class Dapp extends React.Component<Record<string, never>, DappState> {
   async _intializeEthers(): Promise<void> {
     // We first initialize ethers by creating a provider using window.ethereum
     this.setState({
-      provider: new ethers.providers.Web3Provider(window.ethereum)
+      provider: new ethers.providers.Web3Provider(window.ethereum),
     });
 
     // When, we initialize the contract using that provider and the token's
@@ -530,7 +643,7 @@ export class Dapp extends React.Component<Record<string, never>, DappState> {
         EcoContractAddress.EcoToken,
         EcoTokenArtifact.abi,
         this.state.provider?.getSigner(0)
-      )
+      ),
     });
   }
 
@@ -543,8 +656,12 @@ export class Dapp extends React.Component<Record<string, never>, DappState> {
     const ecoDecimals = await this.state.ecoToken?.decimals();
 
     this.setState({
-      sproutTokenData: {name: sproutName, symbol: sproutSymbol, decimals: sproutDecimals},
-      ecoTokenData: {name: ecoName, symbol: ecoSymbol, decimals: ecoDecimals},
+      sproutTokenData: {
+        name: sproutName,
+        symbol: sproutSymbol,
+        decimals: sproutDecimals,
+      },
+      ecoTokenData: { name: ecoName, symbol: ecoSymbol, decimals: ecoDecimals },
     });
   }
 
@@ -557,7 +674,7 @@ export class Dapp extends React.Component<Record<string, never>, DappState> {
       ecoToken: undefined,
       sproutTokenData: undefined,
       ecoTokenData: undefined,
-    })
+    });
   }
 
   // This method just clears part of the state.
@@ -572,7 +689,7 @@ export class Dapp extends React.Component<Record<string, never>, DappState> {
     }
 
     this.setState({
-      networkError: 'Please connect Metamask to Localhost:8545'
+      networkError: "Please connect Metamask to Localhost:8545",
     });
 
     return false;
